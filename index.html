@@ -755,6 +755,81 @@
             maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
         }
 
+        function drawQQChat(sx, sy, sw, sh) {
+            let cy = sy + 20 - scrollY; 
+            let dataList = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
+            let chatData = dataList.find(c => c.id === selectedQQId);
+            if (!chatData) return;
+
+            for (let m of chatData.messages) {
+                if (m.type === 'time' || m.type === 'system') {
+                    if (cy > sy && cy < sy + sh) {
+                        ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+                        let lines = m.text.split('\n');
+                        for(let i=0; i<lines.length; i++) ctx.fillText(lines[i], sx + sw/2, cy + i*16);
+                        ctx.textAlign = 'left';
+                    }
+                    cy += 40;
+                } else {
+                    let isMe = m.type === 'me';
+                    ctx.font = '14px Arial';
+                    let textWidth = ctx.measureText(m.text).width;
+                    let maxBubbleW = sw * 0.6;
+                    let bubbleW = Math.min(textWidth + 20, maxBubbleW);
+                    let bubbleH = 30 + Math.floor(textWidth / maxBubbleW) * 20;
+                    
+                    if (cy + bubbleH + 30 > sy && cy < sy + sh) {
+                        let bx = isMe ? sx + sw - bubbleW - 55 : sx + 55;
+                        
+                        // 头像
+                        let avX = isMe ? sx + sw - 30 : sx + 30;
+                        ctx.fillStyle = isMe ? '#2980b9' : '#8e44ad';
+                        if(m.sender==='念念想冬眠') ctx.fillStyle = '#74b9ff';
+                        if(m.sender==='阿树') ctx.fillStyle = '#e67e22';
+                        ctx.beginPath(); ctx.arc(avX, cy + 15, 18, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle='#fff'; ctx.font='18px Arial'; ctx.textAlign='center';
+                        let avIcon = m.sender==='念念想冬眠' ? '👧' : (m.sender==='阿树' ? '👦' : m.sender.charAt(0));
+                        if(isMe) avIcon = '🐳';
+                        ctx.fillText(avIcon, avX, cy+22);
+                        
+                        // 名字外置
+                        ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.textAlign = isMe ? 'right' : 'left';
+                        ctx.fillText(m.sender, isMe ? sx + sw - 60 : sx + 60, cy);
+                        
+                        // 气泡
+                        ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff'; ctx.textAlign = 'left';
+                        roundRect(ctx, bx, cy + 5, bubbleW, bubbleH, 8, true, false);
+                        ctx.fillStyle = '#333'; ctx.font = '13px Arial';
+                        wrapText(ctx, m.text, bx + 10, cy + 22, bubbleW - 20, 18);
+                    }
+                    cy += bubbleH + 30;
+                }
+            }
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh) + 50);
+        }
+
+        function drawQQZone(sx, sy, sw, sh) {
+            let cy = sy + 20 - scrollY; 
+            for (let post of db.qq_qzone) {
+                let bx = sx + 20;
+                ctx.fillStyle = '#74b9ff'; ctx.beginPath(); ctx.arc(bx+20, cy+20, 20, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = '22px Arial'; ctx.textAlign='center'; ctx.fillText(post.avatar, bx+20, cy+28);
+                ctx.textAlign='left';
+                
+                ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 16px Arial'; ctx.fillText(post.sender, bx + 55, cy + 15);
+                ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.fillText(post.time, bx + 55, cy + 32);
+                
+                cy += 60;
+                ctx.fillStyle = '#ddd'; ctx.font = '14px Arial';
+                let th = wrapText(ctx, post.text, bx, cy, sw - 40, 22);
+                cy += th + 20;
+                
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + sw - 40, cy); ctx.stroke();
+                cy += 20;
+            }
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
+        }
+
         function drawNotes(sx, sy, sw, sh) {
             const notes = [
                 "1 书话",
