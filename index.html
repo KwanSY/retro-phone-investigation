@@ -2,7 +2,6 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>S40-PROJ 绝密档案</title>
     <style>
         body, html {
@@ -32,7 +31,7 @@
 
         // --- 全局状态 ---
         let gameState = 'START_SCREEN'; 
-        // 终端内部路由: desktop, sms_menu, sms_list, sms_detail, gallery_list, gallery_detail, qq_menu, qq_list, qq_chat, qq_qzone
+        // 终端内部路由
         let currentApp = 'desktop'; 
         
         let mouseX = 0, mouseY = 0;
@@ -47,15 +46,14 @@
         let appsOpened = new Set();
         let ferrymanTriggered = false;
         let ferrymanFailedCount = 0;
-        let ferrymanClickedOptions = new Set();
         let evidenceDestroyed = false;
+        let showFerrymanOptions = false;
+        let ferrymanClickedOptions = new Set(); 
         
-        // 多设备解锁状态
+        // 第二设备相关
         let secondPhoneVisible = false;
-        let secondPhoneDecrypted = false;
-        let activePhoneId = 1;
-        let lockPasswordInput = '';
-        let lockErrorMsg = '';
+        let secondPhoneUnlocked = false;
+        let inputPassword = "";
 
         // 选中状态
         let smsBoxType = 'inbox'; 
@@ -63,21 +61,32 @@
         let selectedImgId = null;
         let qqCategory = 'groups'; 
         let selectedQQId = null;
-        let showFerrymanOptions = false;
 
         const db = {
             sms_inbox: [
                 { id: 'in_1', sender: '10086', time: '3月10日', text: '【话费提醒】截至3月9日，您的话费余额为8.63元。余额不足10元，请及时充值，以免影响正常使用。' },
                 { id: 'in_2', sender: '大头', time: '3月11日 17:32', text: '明天放学打球，老地方。这次再放鸽子以后别来了。' },
-                { id: 'in_3', sender: 'QQ安全中心', time: '3月12日 20:03', text: '您登录的QQ号码于20:03在本机上线。如非本人操作，请尽快修改密码。' },
-                { id: 'in_4', sender: '摆渡人', time: '3月13日 21:00', text: '报目标。照片，班级，姓名。' },
-                { id: 'in_5', sender: '摆渡人', time: '3月13日 21:15', text: '嗯。第1关通过。等指令。' }
+                { id: 'in_3', sender: 'QQ安全中心', time: '3月12日 20:03', text: '您登录的QQ号码于20:03在本机上线。如非本人操作，请尽快修改密码。' }
             ],
             sms_outbox: [
-                { id: 'out_1', receiver: '大头', time: '3月11日 17:30', text: '明天不去打球了，有点事。' },
-                { id: 'out_2', receiver: '摆渡人', time: '3月13日 21:10', text: '【附件：IMG_001】\n三班。周念。' },
-                { id: 'out_3', receiver: '摆渡人', time: '3月13日 22:00', text: '1号已入网。' }
+                { id: 'out_1', receiver: '大头', time: '3月11日 17:30', text: '明天不去打球了，有点事。' }
             ],
+            notes: [
+                "1. 书话",
+                "2. 群：1639xxxx",
+                "3. 周三20:00她固定冒泡｜别聊学习，聊书",
+                "4. 物理卷子周五交｜MP3找阿豪拷歌"
+            ],
+            contacts: [
+                { name: '阿豪', phone: '138 0013 8001' },
+                { name: '阿树', phone: '139 1111 2222' },
+                { name: '班长-李雯', phone: '137 8888 9999' },
+                { name: '大头', phone: '135 6666 7777' },
+                { name: '老妈', phone: '139 0000 0000' },
+                { name: '周老师', phone: '139 5555 6666' },
+                { name: '周念', phone: '136 1234 5678' }
+            ],
+            whale_chat: [], // 初始化在 resetGame 中
             gallery: [
                 { id: 'img_001', title: "IMG_001", type: "scene_window", desc: "女生坐在窗边低头看书（逆光）" },
                 { id: 'img_002', title: "IMG_002", type: "scene_eat", desc: "女生独自在食堂吃饭" },
@@ -117,39 +126,34 @@
                     { type: 'time', text: '3.14 22:38' },
                     { type: 'other', sender: '念念想冬眠', text: '跟你聊天很舒服。感觉我说什么你都能接住。' },
                     { type: 'me', sender: '石头', text: '因为我们是同一种人。' },
-                    { type: 'other', sender: '念念想冬眠', text: '明天周一，又要上学了。' },
-                    { type: 'other', sender: '念念想冬眠', text: '不过想到晚上能跟你说话，好像也没那么难熬了。' },
+                    { type: 'other', sender: '念念想冬眠', text: '明天周一，又要上学了。\n不过想到晚上能跟你说话，好像也没那么难熬了。' },
                     { type: 'me', sender: '石头', text: '嗯。我也是。' }
                 ]},
                 { id: 2, name: "阿树", avatar: "👦", messages: [
-                    { type: 'time', text: '3.16 20:30' },
+                    { type: 'time', text: '3月16日 18:20' },
                     { type: 'other', sender: '阿树', text: '3月5号那天下午，三班教室门口。我看到你了。' },
                     { type: 'me', sender: '石头', text: '看到什么。' },
                     { type: 'other', sender: '阿树', text: '你翻的那个书包，不是你们班的。别装了。' },
                     { type: 'me', sender: '石头', text: '你想干什么。' },
-                    { type: 'other', sender: '阿树', text: '我不想干什么。' },
-                    { type: 'other', sender: '阿树', text: '我也是被选中的。' },
+                    { type: 'other', sender: '阿树', text: '我不想干什么。\n我也是被选中的。' },
                     { type: 'me', sender: '石头', text: '……' },
                     { type: 'other', sender: '阿树', text: '闯关。两个字，够不够。' },
                     { type: 'me', sender: '石头', text: '你怎么证明。' },
                     { type: 'other', sender: '阿树', text: '【截图：摆渡人短信，开头两个字"2号"】' },
-                    { type: 'me', sender: '石头', text: '操。' },
-                    { type: 'me', sender: '石头', text: '我以为只有我一个。' },
-                    { type: 'other', sender: '阿树', text: '我之前也这么以为。' },
-                    { type: 'other', sender: '阿树', text: '今天就当认识一下。3月16号，记住了，这日子以后有用。' },
-                    { type: 'time', text: '4.08 23:15' },
+                    { type: 'me', sender: '石头', text: '操。\n我以为只有我一个。' },
+                    { type: 'other', sender: '阿树', text: '我之前也这么以为。\n今天就当认识一下。3月16号，记住了，这日子以后有用。' },
+                    { type: 'time', text: '4月12日 21:05 (串联期)' },
                     { type: 'me', sender: '石头', text: '你第几关了。' },
                     { type: 'other', sender: '阿树', text: '第三关。快扛不住了。' },
                     { type: 'me', sender: '石头', text: '什么叫扛不住。' },
                     { type: 'other', sender: '阿树', text: '他昨天又催了。说逾时除名。' },
                     { type: 'me', sender: '石头', text: '除名是什么意思。' },
-                    { type: 'other', sender: '阿树', text: '不知道。不敢知道。' },
-                    { type: 'other', sender: '阿树', text: '手机快被我捏碎了，壳都磨出边了。屏幕一亮我就心慌。' },
+                    { type: 'other', sender: '阿树', text: '不知道。不敢知道。\n手机快被我捏碎了，壳都磨出边了。屏幕一亮我就心慌。' },
                     { type: 'me', sender: '石头', text: '稳住。' },
                     { type: 'other', sender: '阿树', text: '稳不住。我昨晚梦见她了。' },
                     { type: 'me', sender: '石头', text: '别睡就不做梦了。' },
                     { type: 'other', sender: '阿树', text: '你这话跟摆渡人一个味儿。' },
-                    { type: 'time', text: '4.22 17:40' },
+                    { type: 'time', text: '4月24日 19:30 (换锁屏)' },
                     { type: 'other', sender: '阿树', text: '我把锁屏密码换了。' },
                     { type: 'me', sender: '石头', text: '换什么了。' },
                     { type: 'other', sender: '阿树', text: '那天。你懂的。' },
@@ -157,7 +161,7 @@
                     { type: 'other', sender: '阿树', text: '哪天我要是出事了，起码有人能打开它。' },
                     { type: 'me', sender: '石头', text: '别说晦气话。' },
                     { type: 'other', sender: '阿树', text: '呵呵。' },
-                    { type: 'time', text: '4.28 16:20' },
+                    { type: 'time', text: '4月30日 15:40 (最后一条)' },
                     { type: 'other', sender: '阿树', text: '收到了？' },
                     { type: 'me', sender: '石头', text: '收到了。' },
                     { type: 'other', sender: '阿树', text: '我有点后悔认识你。' },
@@ -168,42 +172,30 @@
                 ]}
             ],
             qq_group: [
-                { id: 1, name: "旧城书话", members: 85, messages: [
+                { id: 1, name: "GAME OVER电玩", members: 45, messages: [
                     { type: 'time', text: '3.08 19:20' },
-                    { type: 'other', sender: '念念想冬眠', text: '有人懂这句话吗。胆小鬼连幸福都会害怕。' },
-                    { type: 'other', sender: '麦田', text: '太宰治嘛，人间失格，日本无赖派。建议楼主把《斜阳》也看了。' },
-                    { type: 'other', sender: '爱书的猫', text: '抱抱楼主，别想太多，开心点～' },
-                    { type: 'me', sender: '石头', text: '懂。碰到棉花都会受伤——第一次读的时候愣住了。' },
-                    { type: 'other', sender: '念念想冬眠', text: '对吧！！就是棉花那句。我身边根本没人看这种书。' },
-                    { type: 'me', sender: '石头', text: '这本书我看了三遍。不是喜欢，是觉得他在写我。' },
-                    { type: 'other', sender: '念念想冬眠', text: '（私聊申请了）' },
-                    { type: 'system', text: '【系统】\n石头 与 念念想冬眠 已成为好友' }
-                ]},
-                { id: 2, name: "GAME OVER电玩", members: 42, messages: [
-                    { type: 'time', text: '3.10 18:30' },
                     { type: 'other', sender: '阿豪', text: '网吧通宵差1人，MP3我带' },
                     { type: 'other', sender: '某人', text: 'KOF97还是CS' },
                     { type: 'other', sender: '阿豪', text: '都玩，先来先得' },
                     { type: 'me', sender: '石头', text: '带我一个' }
                 ]},
-                { id: 3, name: "二中校友总群", members: 315, messages: [
-                    { type: 'time', text: '3.11 12:00' },
+                { id: 2, name: "二中校友总群", members: 412, messages: [
+                    { type: 'time', text: '3.09 12:45' },
                     { type: 'other', sender: '广播站', text: '本周点歌台开放，留言格式：歌名+送给谁+祝福' },
                     { type: 'other', sender: '某人', text: '晴天+送给三班全体+毕业快乐' },
                     { type: 'other', sender: '某2', text: '起风了+给同桌+谢谢你借我笔记' }
                 ]},
-                { id: 4, name: "动感篮球部落", members: 28, messages: [
-                    { type: 'time', text: '3.12 17:20' },
+                { id: 3, name: "动感篮球部落", members: 28, messages: [
+                    { type: 'time', text: '3.11 17:00' },
                     { type: 'other', sender: '大头', text: '周六下午二中约战，来的扣1' },
                     { type: 'other', sender: '阿豪', text: '1' },
                     { type: 'other', sender: '大头', text: '赵磊呢' },
                     { type: 'me', sender: '石头', text: '来了来了' },
                     { type: 'other', sender: '阿豪', text: '上次输的请喝汽水啊' }
                 ]},
-                { id: 5, name: "高二三班", members: 45, messages: [
-                    { type: 'time', text: '3.13 19:00' },
-                    { type: 'other', sender: '周老师', text: '明天值日生提前20分钟到。' },
-                    { type: 'other', sender: '周老师', text: '周三测验，范围第三单元。' },
+                { id: 4, name: "高二三班", members: 52, messages: [
+                    { type: 'time', text: '3.14 20:30' },
+                    { type: 'other', sender: '周老师', text: '明天值日生提前20分钟到。\n周三测验，范围第三单元。' },
                     { type: 'other', sender: '周念', text: '收到。' },
                     { type: 'other', sender: '班长-李雯', text: '收到～' },
                     { type: 'other', sender: '周老师', text: '春游费用下周交，每人80。' }
@@ -214,14 +206,47 @@
             ]
         };
 
-        const appsList = [
-            { id: 'sms_menu', name: '短信息', sub: '暗中联络记录', icon: '✉️', color: '#ffbd2d' },
-            { id: 'gallery_list', name: '相册', sub: '包含10张取证', icon: '🖼️', color: '#3498db' },
-            { id: 'notes', name: '备忘录', sub: '随手记录', icon: '📝', color: '#e67e22' },
-            { id: 'contacts', name: '通讯录', sub: '数量：142人', icon: '👥', color: '#9b59b6' },
-            { id: 'qq_menu', name: '手机QQ', sub: '2007极速版', icon: '🐧', color: '#2ecc71' },
-            { id: 'settings', name: '安全设置', sub: '隐藏与伪装', icon: '⚙️', color: '#95a5a6' }
-        ];
+        let appsList = [];
+        
+        function initApps() {
+            appsList = [
+                { id: 'sms_menu', name: '短信息', sub: '日常联络记录', icon: '✉️', color: '#ffbd2d' },
+                { id: 'gallery_list', name: '相册', sub: '包含10张取证', icon: '🖼️', color: '#3498db' },
+                { id: 'notes', name: '备忘录', sub: '随手记录', icon: '📝', color: '#e67e22' },
+                { id: 'contacts', name: '通讯录', sub: '数量：142人', icon: '👥', color: '#9b59b6' },
+                { id: 'qq_menu', name: '手机QQ', sub: '2007极速版', icon: '🐧', color: '#2ecc71' },
+                { id: 'whale_app', name: '失眠的鲸', sub: '暗网节点', icon: '🐳', color: '#16a085' }
+            ];
+        }
+
+        function resetGame() {
+            gameState = 'START_SCREEN'; 
+            currentApp = 'desktop'; 
+            appsOpened.clear();
+            ferrymanTriggered = false;
+            ferrymanFailedCount = 0;
+            evidenceDestroyed = false;
+            showFerrymanOptions = false;
+            ferrymanClickedOptions.clear();
+            secondPhoneVisible = false;
+            secondPhoneUnlocked = false;
+            inputPassword = "";
+            scrollY = 0;
+            maxScrollY = 0;
+
+            initApps();
+            
+            // 重置摆渡人聊天记录至初始状态
+            db.whale_chat = [
+                { id: 'w_1', type: 'other', sender: '摆渡人', time: '3月13日 21:00', text: '报目标。照片，班级，姓名。' },
+                { id: 'w_2', type: 'me', sender: '石头', time: '3月13日 21:10', text: '【附件：IMG_001】\n三班。周念。' },
+                { id: 'w_3', type: 'other', sender: '摆渡人', time: '3月13日 21:15', text: '嗯。第1关通过。等指令。' },
+                { id: 'w_4', type: 'me', sender: '石头', time: '3月13日 22:00', text: '1号已入网。' }
+            ];
+        }
+
+        // 初始执行一次
+        resetGame();
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -299,69 +324,160 @@
             let startY = h/2 - 100;
 
             for (let i = 0; i < 10; i++) {
-                let row = Math.floor(i / cols);
-                let col = i % cols;
-                let bx = startX + col * spacingX - 60;
-                let by = startY + row * spacingY - 80;
+                let row = Math.floor(i / cols); let col = i % cols;
+                let bx = startX + col * spacingX - 60; let by = startY + row * spacingY - 80;
                 let bw = 120; let bh = 180;
 
                 let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
-                let isTarget1 = (i === 2); // S40-PROJ (原目标)
-                let isTarget2 = (i === 1 && secondPhoneVisible); // S40-02 (阿树)
+                let isTarget = (i === 2); // 第3台是赵磊
+                let isSecond = (i === 1 && secondPhoneVisible); // 第2台是阿树
 
-                if (isTarget1) {
+                if (isTarget) {
                     ctx.fillStyle = isHover ? 'rgba(0, 243, 255, 0.2)' : 'rgba(0, 243, 255, 0.05)';
                     ctx.strokeStyle = isHover ? '#00f3ff' : '#0099aa';
                     ctx.lineWidth = isHover ? 3 : 1;
-                    roundRect(ctx, bx, by, bw, bh, 10, true, true);
-
-                    ctx.fillStyle = '#00f3ff';
-                    roundRect(ctx, bx + 30, by + 20, 60, 100, 5, true, false);
-
-                    ctx.font = '14px Arial';
-                    ctx.fillStyle = '#00f3ff';
-                    ctx.fillText("S40-PROJ", bx + bw/2, by + 145);
-                    ctx.fillStyle = '#0f0'; ctx.font = '12px Arial';
-                    ctx.fillText("[ 授权可用 ]", bx + bw/2, by + 165);
-                    addRegion(bx, by, bw, bh, () => { activePhoneId = 1; gameState = 'DESKTOP'; currentApp = 'desktop'; scrollY = 0; });
-                } else if (isTarget2) {
-                    ctx.fillStyle = isHover ? 'rgba(243, 156, 18, 0.2)' : 'rgba(243, 156, 18, 0.05)';
-                    ctx.strokeStyle = isHover ? '#f39c12' : '#b87333';
+                } else if (isSecond) {
+                    ctx.fillStyle = isHover ? 'rgba(241, 196, 15, 0.2)' : 'rgba(241, 196, 15, 0.05)';
+                    ctx.strokeStyle = isHover ? '#f1c40f' : '#b89214';
                     ctx.lineWidth = isHover ? 3 : 1;
-                    roundRect(ctx, bx, by, bw, bh, 10, true, true);
-
-                    ctx.fillStyle = '#f39c12';
-                    roundRect(ctx, bx + 30, by + 20, 60, 100, 5, true, false);
-
-                    ctx.font = '14px Arial';
-                    ctx.fillStyle = '#f39c12';
-                    ctx.fillText("S40-02", bx + bw/2, by + 145);
-
-                    if (secondPhoneDecrypted) {
-                        ctx.fillStyle = '#0f0'; ctx.font = '12px Arial';
-                        ctx.fillText("[ 授权可用 ]", bx + bw/2, by + 165);
-                        addRegion(bx, by, bw, bh, () => { activePhoneId = 2; gameState = 'DESKTOP'; currentApp = 'desktop'; scrollY = 0; });
-                    } else {
-                        ctx.fillStyle = '#f00'; ctx.font = '12px Arial';
-                        ctx.fillText("[ 密码锁定 ]", bx + bw/2, by + 165);
-                        addRegion(bx, by, bw, bh, () => { gameState = 'LOCK_SCREEN'; lockPasswordInput = ''; lockErrorMsg = ''; });
-                    }
                 } else {
                     ctx.fillStyle = 'rgba(255, 50, 50, 0.05)';
-                    ctx.strokeStyle = '#552222';
-                    ctx.lineWidth = 1;
-                    roundRect(ctx, bx, by, bw, bh, 10, true, true);
+                    ctx.strokeStyle = '#552222'; ctx.lineWidth = 1;
+                }
+                
+                roundRect(ctx, bx, by, bw, bh, 10, true, true);
 
-                    ctx.fillStyle = '#552222';
-                    roundRect(ctx, bx + 30, by + 20, 60, 100, 5, true, false);
+                // 手机简易图标
+                ctx.fillStyle = isTarget ? '#00f3ff' : (isSecond ? '#f1c40f' : '#552222');
+                roundRect(ctx, bx + 30, by + 20, 60, 100, 5, true, false);
 
-                    ctx.font = '14px Arial';
-                    ctx.fillStyle = '#552222';
-                    ctx.fillText("UNKNOWN", bx + bw/2, by + 145);
-                    ctx.fillStyle = '#f00'; ctx.font = '12px Arial';
-                    ctx.fillText("[ 锁定 ]", bx + bw/2, by + 165);
+                ctx.font = '14px Arial';
+                if (isTarget) {
+                    ctx.fillStyle = '#00f3ff'; ctx.fillText("S40-PROJ", bx + bw/2, by + 145);
+                    ctx.fillStyle = '#0f0'; ctx.font = '12px Arial'; ctx.fillText("[ 赵磊终端 ]", bx + bw/2, by + 165);
+                    addRegion(bx, by, bw, bh, () => { gameState = 'DESKTOP'; currentApp = 'desktop'; scrollY = 0; });
+                } else if (isSecond) {
+                    ctx.fillStyle = '#f1c40f'; ctx.fillText("S40-02", bx + bw/2, by + 145);
+                    ctx.fillStyle = secondPhoneUnlocked ? '#0f0' : '#e74c3c'; ctx.font = '12px Arial'; 
+                    ctx.fillText(secondPhoneUnlocked ? "[ 阿树终端 ]" : "[ 密码锁定 ]", bx + bw/2, by + 165);
+                    addRegion(bx, by, bw, bh, () => { 
+                        if (secondPhoneUnlocked) {
+                            gameState = 'ASHU_PHONE';
+                        } else {
+                            gameState = 'PASSWORD_INPUT'; inputPassword = "";
+                        }
+                    });
+                } else {
+                    ctx.fillStyle = '#552222'; ctx.fillText("UNKNOWN", bx + bw/2, by + 145);
+                    ctx.fillStyle = '#f00'; ctx.font = '12px Arial'; ctx.fillText("[ 物理损坏 ]", bx + bw/2, by + 165);
                 }
             }
+            ctx.textAlign = 'left';
+        }
+
+        function drawPasswordScreen() {
+            let w = canvas.width, h = canvas.height;
+            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(0, 0, w, h);
+            
+            let bx = w/2 - 150, by = h/2 - 200, bw = 300, bh = 400;
+            ctx.fillStyle = '#1e272e'; ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 2;
+            roundRect(ctx, bx, by, bw, bh, 15, true, true);
+            
+            ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 20px Arial'; ctx.textAlign='center';
+            ctx.fillText("输入 S40-02 锁屏密码", w/2, by + 40);
+            
+            ctx.fillStyle = '#111'; roundRect(ctx, bx+20, by+70, bw-40, 50, 5, true, false);
+            ctx.fillStyle = '#fff'; ctx.font = '30px Courier New';
+            let displayPw = inputPassword.replace(/./g, '*');
+            ctx.fillText(displayPw || "____", w/2, by + 105);
+            
+            // 绘制数字键盘
+            let keys = ['1','2','3','4','5','6','7','8','9','退格','0','取消'];
+            for(let i=0; i<12; i++) {
+                let row = Math.floor(i/3); let col = i%3;
+                let kx = bx + 25 + col * 85; let ky = by + 140 + row * 60;
+                let isHover = mouseX>=kx && mouseX<=kx+80 && mouseY>=ky && mouseY<=ky+50;
+                ctx.fillStyle = isHover ? 'rgba(241, 196, 15, 0.4)' : '#2f3640';
+                roundRect(ctx, kx, ky, 80, 50, 5, true, false);
+                
+                ctx.fillStyle = '#fff'; ctx.font = '20px Arial';
+                ctx.fillText(keys[i], kx+40, ky+32);
+                
+                addRegion(kx, ky, 80, 50, () => {
+                    if(keys[i] === '退格') inputPassword = inputPassword.slice(0, -1);
+                    else if(keys[i] === '取消') gameState = 'START_SCREEN';
+                    else {
+                        if(inputPassword.length < 4) inputPassword += keys[i];
+                        if(inputPassword.length === 4) {
+                            if(inputPassword === '0316') {
+                                secondPhoneUnlocked = true;
+                                gameState = 'ASHU_PHONE';
+                            } else {
+                                inputPassword = "";
+                                // 简单错误提示，下一次帧就清空了
+                            }
+                        }
+                    }
+                });
+            }
+            ctx.textAlign='left';
+        }
+
+        function drawAshuPhone() {
+            let w = canvas.width, h = canvas.height;
+            ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
+            
+            ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 30px Arial'; ctx.textAlign='center';
+            ctx.fillText("S40-02 (阿树终端) 解密成功", w/2, h/2 - 40);
+            
+            ctx.fillStyle = '#aaa'; ctx.font = '16px Arial';
+            ctx.fillText("系统提示：设备内容已被远端物理销毁程序覆盖。", w/2, h/2 + 10);
+            ctx.fillText("仅保留了最后一段碎片录音，是否读取？", w/2, h/2 + 40);
+            
+            drawDisconnectButton(w/2 - 75, h/2 + 100);
+            ctx.textAlign='left';
+        }
+
+        function drawGameOverScreen() {
+            let w = canvas.width, h = canvas.height;
+            // 压抑的猩红渐变背景
+            let bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+            bgGrad.addColorStop(0, 'rgba(30, 0, 0, 0.95)'); 
+            bgGrad.addColorStop(1, 'rgba(10, 0, 0, 1)');
+            ctx.fillStyle = bgGrad; 
+            ctx.fillRect(0, 0, w, h);
+            
+            // 噪点杂线特效
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.05)';
+            for(let i=0; i<h; i+=10) ctx.fillRect(0, i, w, 2);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '28px "Helvetica Neue", Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("你失去了和摆渡人的唯一联系，", w/2, h/2 - 80);
+            ctx.fillText("再也无法找到事情的真相。", w/2, h/2 - 40);
+            
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = 'bold 80px "Arial Black", Arial';
+            ctx.shadowColor = '#e74c3c'; ctx.shadowBlur = 20;
+            ctx.fillText("降 职 ！！", w/2, h/2 + 60);
+            ctx.shadowBlur = 0; // 重置阴影
+            
+            // 重新开始按钮
+            let bx = w/2 - 120, by = h/2 + 150, bw = 240, bh = 55;
+            let isHover = mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh;
+            
+            ctx.fillStyle = isHover ? 'rgba(231, 76, 60, 0.8)' : 'rgba(231, 76, 60, 0.2)';
+            ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 2;
+            roundRect(ctx, bx, by, bw, bh, 8, true, true);
+            
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 22px Arial';
+            ctx.fillText("重新开始 (Restart)", w/2, by + 35);
+            
+            addRegion(bx, by, bw, bh, () => {
+                resetGame();
+            });
+            
             ctx.textAlign = 'left';
         }
 
@@ -369,12 +485,10 @@
             let w = canvas.width, h = canvas.height;
             if (w === 0 || h === 0) return;
 
-            // 桌子底色与网格
             let bgGrad = ctx.createLinearGradient(0, 0, 0, h);
             bgGrad.addColorStop(0, '#1e2129'); bgGrad.addColorStop(1, '#111318');
             ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, w, h);
             
-            // 背景暗影与光斑
             ctx.fillStyle = 'rgba(0, 243, 255, 0.03)';
             ctx.beginPath(); ctx.arc(w/2, h/2, 600, 0, Math.PI*2); ctx.fill();
 
@@ -392,39 +506,27 @@
             ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 5;
             ctx.fillStyle = '#f2db94'; ctx.fillRect(0, 0, 240, 120);
             ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-            // 胶布小条
             ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(100, -10, 40, 25);
             ctx.fillStyle = '#c0392b'; ctx.font = 'bold 16px Arial'; ctx.fillText("TOP SECRET", 15, 25);
             ctx.fillStyle = '#333'; ctx.font = '14px "Courier New"';
-            
-            if (activePhoneId === 1) {
-                ctx.fillText("案卷: S40-PROJ", 15, 55);
-                ctx.fillText("嫌疑人: 赵磊", 15, 80);
-                ctx.fillText("状态: 取证分析中...", 15, 105);
-            } else {
-                ctx.fillText("案卷: S40-02", 15, 55);
-                ctx.fillText("嫌疑人: 阿树", 15, 80);
-                ctx.fillText("状态: 设备已破解", 15, 105);
-            }
+            ctx.fillText("案卷: S40-PROJ", 15, 55);
+            ctx.fillText("嫌疑人: 赵磊", 15, 80);
+            ctx.fillText("状态: 取证分析中...", 15, 105);
             ctx.restore();
 
-            let centerX = w / 2;
-            let centerY = h / 2;
-
-            // 坐标计算
+            let centerX = w / 2; let centerY = h / 2;
             let nokiaX = centerX - 420; let nokiaY = centerY - 200;
             let termX = centerX - 100; let termY = centerY - 320; 
             let termW = 420; let termH = 640;
 
-            // 绘制 USB 连接线 (高科技蓝光)
+            // USB 连接线
             ctx.shadowColor = '#00f3ff'; ctx.shadowBlur = 15;
             ctx.beginPath();
-            ctx.moveTo(nokiaX + 220, nokiaY + 150); // 手机右侧
-            ctx.quadraticCurveTo(nokiaX + 300, nokiaY + 250, termX, termY + 300); // 终端左侧
+            ctx.moveTo(nokiaX + 220, nokiaY + 150); 
+            ctx.quadraticCurveTo(nokiaX + 300, nokiaY + 250, termX, termY + 300); 
             ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 4; ctx.stroke();
             ctx.shadowBlur = 0;
             
-            // 流动光效
             let dashOffset = -timeTick;
             ctx.setLineDash([15, 15]); ctx.lineDashOffset = dashOffset;
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
@@ -433,13 +535,10 @@
             ctx.fillStyle = '#00f3ff'; ctx.font = '12px Arial';
             ctx.fillText("USB-LINK DATA >>", nokiaX + 230, nokiaY + 220);
 
-            // 渲染设备
             drawNokia5300Closed(nokiaX, nokiaY);
             drawTerminal(termX, termY, termW, termH);
             
-            // 添加一个退出桌面的按钮
             drawDisconnectButton(w - 180, 30);
-            
             checkFerrymanEvent();
         }
 
@@ -459,18 +558,14 @@
         }
 
         function drawNokia5300Closed(x, y) {
-            let w = 220, h = 360; // 更短的高度，模拟合盖状态
+            let w = 220, h = 360; 
             
-            // 手机整体阴影
             ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 30; ctx.shadowOffsetX = 15; ctx.shadowOffsetY = 20;
-            // 底层白灰色机身
             ctx.fillStyle = '#f2f2f2'; roundRect(ctx, x, y, w, h, 40, true, false);
             ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
-            // 深灰色边框勾勒
             ctx.strokeStyle = '#a0a0a0'; ctx.lineWidth = 2; roundRect(ctx, x, y, w, h, 40, false, true);
             
-            // 顶部听筒和 NOKIA Logo
             let silverGrad = ctx.createLinearGradient(x, y, x, y+80);
             silverGrad.addColorStop(0, '#e5e9ec'); silverGrad.addColorStop(1, '#bdc3c7');
             ctx.save(); ctx.beginPath(); roundRect(ctx, x, y, w, 80, {tl:40, tr:40, bl:0, br:0}); ctx.clip();
@@ -480,65 +575,45 @@
             ctx.fillStyle = '#666'; ctx.font = 'bold 18px "Arial Black", sans-serif'; ctx.textAlign='center';
             ctx.fillText("NOKIA", x+w/2, y+65); ctx.textAlign='left';
 
-            // --- 左右经典红色侧边栏 (完美复刻参考图) ---
             let redGrad = ctx.createLinearGradient(x, 0, x+30, 0);
             redGrad.addColorStop(0, '#a71d1d'); redGrad.addColorStop(1, '#e53935');
             let rightRedGrad = ctx.createLinearGradient(x+w-30, 0, x+w, 0);
             rightRedGrad.addColorStop(0, '#e53935'); rightRedGrad.addColorStop(1, '#a71d1d');
 
-            // 左红条
-            ctx.fillStyle = redGrad;
-            ctx.fillRect(x-4, y+80, 30, 180); 
-            ctx.strokeStyle = '#8e1515'; ctx.strokeRect(x-4, y+80, 30, 180);
-            // 左侧音乐雕刻按钮 (上一首, 播放/暂停, 下一首)
+            ctx.fillStyle = redGrad; ctx.fillRect(x-4, y+80, 30, 180); ctx.strokeStyle = '#8e1515'; ctx.strokeRect(x-4, y+80, 30, 180);
             ctx.fillStyle = '#fff'; ctx.font = '14px Arial';
-            ctx.fillText("⏮", x+2, y+115); 
-            ctx.fillText("⏯", x+2, y+175); 
-            ctx.fillText("⏭", x+2, y+235);
+            ctx.fillText("⏮", x+2, y+115); ctx.fillText("⏯", x+2, y+175); ctx.fillText("⏭", x+2, y+235);
 
-            // 右红条
-            ctx.fillStyle = rightRedGrad;
-            ctx.fillRect(x+w-26, y+80, 30, 180); 
-            ctx.strokeRect(x+w-26, y+80, 30, 180);
-            // 右侧按键 (相机、音量)
-            ctx.fillStyle = '#fff'; ctx.font = '14px Arial';
-            ctx.fillText("📷", x+w-20, y+115);
-            ctx.fillStyle = '#eee'; roundRect(ctx, x+w-18, y+160, 8, 40, 4, true, false); // 音量键
+            ctx.fillStyle = rightRedGrad; ctx.fillRect(x+w-26, y+80, 30, 180); ctx.strokeRect(x+w-26, y+80, 30, 180);
+            ctx.fillStyle = '#fff'; ctx.font = '14px Arial'; ctx.fillText("📷", x+w-20, y+115);
+            ctx.fillStyle = '#eee'; roundRect(ctx, x+w-18, y+160, 8, 40, 4, true, false);
             ctx.fillStyle = '#888'; ctx.font = '10px Arial'; ctx.fillText("+", x+w-16, y+175); ctx.fillText("-", x+w-15, y+195);
 
-            // --- 屏幕黑框与橙色音乐内屏 ---
-            ctx.fillStyle = '#111'; roundRect(ctx, x+26, y+80, w-52, 180, 10, true, false); // 黑边框
+            ctx.fillStyle = '#111'; roundRect(ctx, x+26, y+80, w-52, 180, 10, true, false); 
             
             let screenGrad = ctx.createLinearGradient(x+30, y+84, x+30, y+256);
             screenGrad.addColorStop(0, '#ff9800'); screenGrad.addColorStop(1, '#f4511e');
-            ctx.fillStyle = screenGrad; ctx.fillRect(x+30, y+84, w-60, 172); // 内屏亮起
+            ctx.fillStyle = screenGrad; ctx.fillRect(x+30, y+84, w-60, 172); 
             
-            // 屏幕顶部状态栏
             ctx.fillStyle = '#fff'; ctx.font = '10px Arial';
             ctx.fillText("T..ll", x+35, y+98); 
             ctx.strokeStyle = '#fff'; ctx.strokeRect(x+65, y+90, 15, 8); ctx.fillStyle='#0f0'; ctx.fillRect(x+66, y+91, 11, 6);
             ctx.fillStyle = '#fff'; ctx.textAlign='right'; ctx.fillText("10:09", x+w-35, y+98); ctx.textAlign='left';
             
-            // 橙色屏幕中的正弦波和播放键
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath();
             for(let i=0; i<w-60; i++) {
                 ctx.lineTo(x+30+i, y+140 + Math.sin(i*0.05 + timeTick*0.1) * 15);
             }
             ctx.stroke();
-            // 大播放按钮
             ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(x+w/2, y+190, 25, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x+w/2-6, y+180); ctx.lineTo(x+w/2+10, y+190); ctx.lineTo(x+w/2-6, y+200); ctx.fill();
             
-            // 屏幕底栏 Menu 标识
             ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(x+30, y+240, w-60, 16);
             ctx.fillStyle = '#333'; ctx.font = 'bold 11px Arial'; ctx.textAlign='center';
             ctx.fillText("Menu", x+55, y+252); ctx.fillText("Menu", x+w/2, y+252); ctx.fillText("Menu", x+w-55, y+252);
             ctx.textAlign='left';
 
-            // --- 下半部物理控制区 (无数字键盘) ---
             let keyY = y + 270;
-            
-            // 左右软键 (带蓝条)
             ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
             roundRect(ctx, x+30, keyY, 40, 18, 9, true, true);
             ctx.fillStyle = '#3498db'; roundRect(ctx, x+45, keyY+5, 10, 3, 1, true, false);
@@ -546,103 +621,56 @@
             ctx.fillStyle = '#fff'; roundRect(ctx, x+w-70, keyY, 40, 18, 9, true, true);
             ctx.fillStyle = '#3498db'; roundRect(ctx, x+w-55, keyY+5, 10, 3, 1, true, false);
 
-            // 红圈 D-Pad (方向键)
             let dpX = x+w/2; let dpY = keyY + 28;
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(dpX, dpY, 35, 0, Math.PI*2); ctx.fill(); ctx.stroke();
             ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(dpX, dpY, 28, 0, Math.PI*2); ctx.stroke();
             ctx.fillStyle = '#f5f5f5'; ctx.beginPath(); ctx.arc(dpX, dpY, 14, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle='#aaa'; ctx.lineWidth=1; ctx.stroke();
 
-            // 接听 挂断 (带绿/红条)
             ctx.fillStyle = '#fff'; roundRect(ctx, x+30, keyY+35, 40, 18, 9, true, true); 
             ctx.fillStyle = '#2ecc71'; roundRect(ctx, x+42, keyY+40, 16, 4, 2, true, false);
             
             ctx.fillStyle = '#fff'; roundRect(ctx, x+w-70, keyY+35, 40, 18, 9, true, true); 
             ctx.fillStyle = '#e74c3c'; roundRect(ctx, x+w-58, keyY+40, 16, 4, 2, true, false);
-            // 挂断键旁边的红色电源小标志
             ctx.strokeStyle = '#e74c3c'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(x+w-38, keyY+44, 3, 0, Math.PI*2); ctx.stroke();
         }
 
         function drawTerminal(sx, sy, sw, sh) {
-            // 终端高科技外壳
             ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 25; ctx.shadowOffsetY = 15;
             ctx.fillStyle = '#1c2128'; roundRect(ctx, sx, sy, sw, sh, 25, true, false);
             ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
             ctx.strokeStyle = '#2d333b'; ctx.lineWidth = 4; roundRect(ctx, sx, sy, sw, sh, 25, false, true);
             
-            // 顶部铭牌与指示灯
             ctx.fillStyle = '#2d333b'; roundRect(ctx, sx+sw/2-80, sy+15, 160, 20, 10, true, false);
             ctx.fillStyle = '#888'; ctx.font = 'bold 12px Arial'; ctx.textAlign='center'; ctx.fillText("S40-PROJ 分析终端", sx+sw/2, sy+29); ctx.textAlign='left';
             ctx.fillStyle = (timeTick % 60 < 30) ? '#e74c3c' : '#c0392b'; ctx.beginPath(); ctx.arc(sx+sw-30, sy+25, 4, 0, Math.PI*2); ctx.fill();
 
-            // 内屏边界裁剪
             let scrX = sx + 20, scrY = sy + 50, scrW = sw - 40, scrH = sh - 100;
             ctx.save(); ctx.beginPath(); ctx.roundRect(scrX, scrY, scrW, scrH, 10); ctx.clip();
 
-            // 内屏深蓝全息底色
             let bg = ctx.createLinearGradient(scrX, scrY, scrX, scrY+scrH);
             bg.addColorStop(0, '#02182b'); bg.addColorStop(0.5, '#04345c'); bg.addColorStop(1, '#02182b');
             ctx.fillStyle = bg; ctx.fillRect(scrX, scrY, scrW, scrH);
             
-            // 扫描纹理
             ctx.fillStyle = 'rgba(255,255,255,0.02)';
             for(let i=0; i<scrH; i+=4) ctx.fillRect(scrX, scrY+i, scrW, 1);
 
-            if (activePhoneId === 2) {
-                ctx.fillStyle = '#f39c12'; ctx.font = 'bold 20px Arial';
-                ctx.fillText("[!] S40-02 (阿树的终端) 已接入", scrX + 20, scrY + 60);
-                
-                ctx.fillStyle = '#fff'; ctx.font = '16px Arial';
-                let txt = "安全锁屏密码 '0316' 验证通过。\n\n由于设备曾遭受物理破坏，本地文件索引已损毁。\n\n目前仅通过碎片重组提取出部分通讯痕迹(已合并至一号设备时间线中)。更深层的本地物证正在云端沙箱中进行重构，本地终端暂无其他可独立操作应用。";
-                wrapText(ctx, txt, scrX + 20, scrY + 110, scrW - 40, 26);
-                
-                ctx.restore(); // 结束内屏裁剪
-                // 终端底部硬件指纹区
-                ctx.fillStyle = '#222'; roundRect(ctx, sx+sw/2-60, sy+sh-30, 120, 8, 4, true, false);
-                return;
-            }
-
-            // 终端顶部系统状态栏 (完美还原截图)
             ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(scrX, scrY, scrW, 35);
             ctx.fillStyle = '#fff'; ctx.font = '12px Arial';
             ctx.fillText("GSM 中国移动", scrX+15, scrY+22);
             ctx.textAlign = 'right'; ctx.fillText("100%", scrX+scrW-35, scrY+22); ctx.textAlign = 'left';
-            // 电池图标
             ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(scrX+scrW-30, scrY+12, 18, 10); ctx.fillRect(scrX+scrW-28, scrY+14, 14, 6); ctx.fillRect(scrX+scrW-12, scrY+15, 2, 4);
 
             let contentY = scrY + 35; let contentH = scrH - 35;
-            let topBarHeight = 35;
-            let returnAction = null;
-            let returnRegion = null;
             
-            // 通用返回栏 (除桌面外都显示)
-            if (currentApp !== 'desktop') {
-                ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.fillRect(scrX, contentY, scrW, 40);
-                ctx.fillStyle = '#00f3ff'; roundRect(ctx, scrX + 10, contentY + 8, 70, 24, 4, true, false);
-                ctx.fillStyle = '#000'; ctx.font = 'bold 12px Arial'; ctx.textAlign='center'; ctx.fillText("◀ 返回", scrX + 45, contentY + 24); ctx.textAlign='left';
-                ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(scrX, contentY+40); ctx.lineTo(scrX+scrW, contentY+40); ctx.stroke();
-                
-                returnRegion = { x: scrX + 10, y: contentY + 8, w: 70, h: 24 };
-                returnAction = () => {
-                    if (currentApp === 'sms_detail') currentApp = 'sms_list';
-                    else if (currentApp === 'sms_list') currentApp = 'sms_menu';
-                    else if (currentApp === 'gallery_detail') currentApp = 'gallery_list';
-                    else if (currentApp === 'qq_chat') currentApp = 'qq_list';
-                    else if (currentApp === 'qq_list' || currentApp === 'qq_qzone') currentApp = 'qq_menu';
-                    else currentApp = 'desktop';
-                    scrollY = 0;
-                };
-                contentY += 40; contentH -= 40;
-                topBarHeight += 40;
-            }
-
-            // 新增：为滚动内容单独创建剪裁区域，防止向上滚动时文字溢出覆盖返回栏
             ctx.save(); 
             ctx.beginPath(); 
             ctx.rect(scrX, contentY, scrW, contentH); 
-            ctx.clip();
+            ctx.clip(); 
 
             // 路由派发
             if (currentApp === 'desktop') drawAppGrid(scrX, contentY, scrW, contentH);
+            else if (currentApp === 'contacts') drawContacts(scrX, contentY, scrW, contentH);
+            else if (currentApp === 'whale_app') drawWhaleChat(scrX, contentY, scrW, contentH);
             else if (currentApp === 'sms_menu') drawSmsMenu(scrX, contentY, scrW, contentH);
             else if (currentApp === 'sms_list') drawSmsList(scrX, contentY, scrW, contentH);
             else if (currentApp === 'sms_detail') drawSmsDetail(scrX, contentY, scrW, contentH);
@@ -655,30 +683,39 @@
             else if (currentApp === 'notes') drawNotes(scrX, contentY, scrW, contentH);
             else { ctx.fillStyle='#fff'; ctx.fillText("此功能无需勘验...", scrX+20, contentY+50); }
 
-            ctx.restore(); // 结束内容区域剪裁
+            ctx.restore(); // 结束内容层裁剪
 
-            // 在渲染完内容后，再注册顶部栏的点击事件，利用事件倒序遍历机制拦截误触
-            addRegion(scrX, scrY, scrW, topBarHeight, () => {}); // 拦截整个顶部的穿透点击
-            if (returnAction && returnRegion) {
-                addRegion(returnRegion.x, returnRegion.y, returnRegion.w, returnRegion.h, returnAction);
+            // 绘制统一的返回栏并后置注册点击事件，防止滚动溢出误触
+            if (currentApp !== 'desktop') {
+                ctx.fillStyle = 'rgba(30, 33, 41, 0.95)'; ctx.fillRect(scrX, scrY + 35, scrW, 40);
+                ctx.fillStyle = '#00f3ff'; roundRect(ctx, scrX + 10, scrY + 43, 70, 24, 4, true, false);
+                ctx.fillStyle = '#000'; ctx.font = 'bold 12px Arial'; ctx.textAlign='center'; ctx.fillText("◀ 返回", scrX + 45, scrY + 59); ctx.textAlign='left';
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(scrX, scrY+75); ctx.lineTo(scrX+scrW, scrY+75); ctx.stroke();
+                
+                addRegion(scrX + 10, scrY + 43, 70, 24, () => {
+                    if (currentApp === 'sms_detail') currentApp = 'sms_list';
+                    else if (currentApp === 'sms_list') currentApp = 'sms_menu';
+                    else if (currentApp === 'gallery_detail') currentApp = 'gallery_list';
+                    else if (currentApp === 'qq_chat') currentApp = 'qq_list';
+                    else if (currentApp === 'qq_list' || currentApp === 'qq_qzone') currentApp = 'qq_menu';
+                    else currentApp = 'desktop';
+                    scrollY = 0;
+                });
             }
 
-            ctx.restore(); // 结束内屏裁剪
+            ctx.restore(); // 结束内屏边界裁剪
 
-            // 终端底部硬件指纹区
             ctx.fillStyle = '#222'; roundRect(ctx, sx+sw/2-60, sy+sh-30, 120, 8, 4, true, false);
         }
 
         function drawAppGrid(sx, sy, sw, sh) {
             ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign='center';
-            ctx.fillText("— [ 核心数据 (6项来源) ] —", sx + sw/2, sy + 35);
+            ctx.fillText("— [ 核心数据分析 ] —", sx + sw/2, sy + 35);
             
-            // 完美居中网格 2列 x 3行
             let cols = 2; 
             let itemW = 150; let itemH = 120;
             let paddingX = 20; let paddingY = 20;
             let totalGridW = cols * itemW + (cols - 1) * paddingX;
-            
             let startX = sx + (sw - totalGridW) / 2;
             let startY = sy + 65;
 
@@ -689,24 +726,20 @@
 
                 let isHover = mouseX >= bx && mouseX <= bx + itemW && mouseY >= by && mouseY <= by + itemH;
                 
-                // 卡片底色 (模仿截图的高级玻璃感)
                 ctx.fillStyle = isHover ? 'rgba(0, 243, 255, 0.2)' : 'rgba(255,255,255,0.05)';
                 ctx.strokeStyle = isHover ? '#f1c40f' : 'rgba(0, 243, 255, 0.3)'; ctx.lineWidth = 2;
                 roundRect(ctx, bx, by, itemW, itemH, 12, true, true);
 
-                // 图标
                 ctx.fillStyle = appsList[i].color; ctx.font = '40px Arial';
                 ctx.fillText(appsList[i].icon, bx + itemW/2, by + 50);
                 
-                // 文字
                 ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial';
                 ctx.fillText(appsList[i].name, bx + itemW/2, by + 85);
                 ctx.fillStyle = '#00f3ff'; ctx.font = '12px Arial';
                 ctx.fillText(appsList[i].sub, bx + itemW/2, by + 105);
 
-                // 红点提醒 (只有在摆渡人事件触发，且未回复完成时显示)
-                let hasUnreadFerryman = db.sms_inbox.some(s => s.id === 'ferryman_q1');
-                if (appsList[i].id === 'sms_menu' && ferrymanTriggered && hasUnreadFerryman) {
+                let hasUnreadFerryman = db.whale_chat.some(s => s.id === 'ferryman_q1');
+                if (appsList[i].id === 'whale_app' && ferrymanTriggered && hasUnreadFerryman) {
                     ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(bx + itemW - 15, by + 15, 8, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Arial'; ctx.fillText("1", bx + itemW - 15, by + 19);
                 }
@@ -719,182 +752,18 @@
             ctx.textAlign = 'left';
         }
 
-        function drawQQMenu(sx, sy, sw, sh) {
-            let menus = [
-                {name: '联系人 (私聊)', cat: 'friends', icon: '👤', desc: '阿树, 念念想冬眠 等'}, 
-                {name: '群组聊天', cat: 'groups', icon: '👥', desc: '旧城书话, 跑腿兄弟连 等'},
-                {name: 'QQ空间动态', cat: 'qzone', icon: '🌟', desc: '异常拦截记录'}
-            ];
-            for (let i = 0; i < menus.length; i++) {
-                let bx = sx + 20, by = sy + 20 + i*80, bw = sw - 40, bh = 70;
-                let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
-                ctx.fillStyle = isHover ? 'rgba(46, 204, 113, 0.3)' : 'rgba(255,255,255,0.05)';
-                ctx.strokeStyle = isHover ? '#2ecc71' : 'transparent'; ctx.lineWidth=2;
-                roundRect(ctx, bx, by, bw, bh, 10, true, isHover);
-                
-                ctx.fillStyle = '#fff'; ctx.font = '30px Arial'; ctx.fillText(menus[i].icon, bx + 15, by + 45);
-                ctx.fillStyle = '#2ecc71'; ctx.font = 'bold 18px Arial'; ctx.fillText(menus[i].name, bx + 65, by + 35);
-                ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.fillText(menus[i].desc, bx + 65, by + 55);
-                
-                addRegion(bx, by, bw, bh, () => { 
-                    if (menus[i].cat === 'qzone') currentApp = 'qq_qzone';
-                    else { currentApp = 'qq_list'; qqCategory = menus[i].cat; }
-                    scrollY = 0; 
-                });
-            }
-        }
-
-        function drawQQList(sx, sy, sw, sh) {
-            let list = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
-            let cy = sy + 10 - scrollY;
-            for (let item of list) {
-                let bx = sx + 10, by = cy, bh = 70;
-                if (by + bh > sy && by < sy + sh) {
-                    let isHover = mouseX >= bx && mouseX <= bx + sw - 20 && mouseY >= by && mouseY <= by + bh;
-                    ctx.fillStyle = isHover ? 'rgba(255,255,255,0.1)' : 'transparent'; ctx.fillRect(bx, by, sw - 20, bh);
-                    
-                    // 头像
-                    ctx.fillStyle = qqCategory === 'groups' ? '#e67e22' : '#9b59b6';
-                    ctx.beginPath(); ctx.arc(bx + 35, by + 35, 22, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign='center';
-                    ctx.fillText(item.avatar || (qqCategory==='groups'?'👥':'👤'), bx + 35, by + 43);
-                    
-                    ctx.textAlign='left'; ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 16px Arial';
-                    ctx.fillText(item.name + (item.members ? ` (${item.members}人)` : ''), bx + 70, by + 35);
-                    
-                    let lastMsg = item.messages[item.messages.length-1].text;
-                    ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
-                    ctx.fillText(lastMsg.length > 20 ? lastMsg.substring(0,20)+"..." : lastMsg, bx + 70, by + 55);
-                    
-                    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, by + bh); ctx.lineTo(bx + sw - 20, by + bh); ctx.stroke();
-                    
-                    addRegion(bx, by, sw - 20, bh, () => { selectedQQId = item.id; currentApp = 'qq_chat'; scrollY = 0; });
-                }
-                cy += bh;
-            }
-            maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
-        }
-
-        function drawQQChat(sx, sy, sw, sh) {
-            let cy = sy + 20 - scrollY; 
-            let dataList = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
-            let chatData = dataList.find(c => c.id === selectedQQId);
-            if (!chatData) return;
-
-            for (let m of chatData.messages) {
-                if (m.type === 'time' || m.type === 'system') {
-                    if (cy > sy && cy < sy + sh) {
-                        ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
-                        let lines = m.text.split('\n');
-                        for(let i=0; i<lines.length; i++) ctx.fillText(lines[i], sx + sw/2, cy + i*16);
-                        ctx.textAlign = 'left';
-                    }
-                    cy += 40;
-                } else {
-                    let isMe = m.type === 'me';
-                    ctx.font = '14px Arial';
-                    let textWidth = ctx.measureText(m.text).width;
-                    let maxBubbleW = sw * 0.6;
-                    let bubbleW = Math.min(textWidth + 20, maxBubbleW);
-                    let bubbleH = 30 + Math.floor(textWidth / maxBubbleW) * 20;
-                    
-                    if (cy + bubbleH + 30 > sy && cy < sy + sh) {
-                        let bx = isMe ? sx + sw - bubbleW - 55 : sx + 55;
-                        
-                        // 头像
-                        let avX = isMe ? sx + sw - 30 : sx + 30;
-                        ctx.fillStyle = isMe ? '#7f8c8d' : '#8e44ad';
-                        if(m.sender==='念念想冬眠') ctx.fillStyle = '#74b9ff';
-                        if(m.sender==='阿树') ctx.fillStyle = '#e67e22';
-                        ctx.beginPath(); ctx.arc(avX, cy + 15, 18, 0, Math.PI*2); ctx.fill();
-                        ctx.fillStyle='#fff'; ctx.font='18px Arial'; ctx.textAlign='center';
-                        let avIcon = m.sender==='念念想冬眠' ? '👧' : (m.sender==='阿树' ? '👦' : m.sender.charAt(0));
-                        if(isMe) avIcon = '🪨';
-                        ctx.fillText(avIcon, avX, cy+22);
-                        
-                        // 名字外置
-                        ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.textAlign = isMe ? 'right' : 'left';
-                        ctx.fillText(m.sender, isMe ? sx + sw - 60 : sx + 60, cy);
-                        
-                        // 气泡
-                        ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff'; ctx.textAlign = 'left';
-                        roundRect(ctx, bx, cy + 5, bubbleW, bubbleH, 8, true, false);
-                        ctx.fillStyle = '#333'; ctx.font = '13px Arial';
-                        wrapText(ctx, m.text, bx + 10, cy + 22, bubbleW - 20, 18);
-                    }
-                    cy += bubbleH + 30;
-                }
-            }
-            maxScrollY = Math.max(0, cy + scrollY - (sy + sh) + 50);
-        }
-
-        function drawQQZone(sx, sy, sw, sh) {
-            let cy = sy + 20 - scrollY; 
-            for (let post of db.qq_qzone) {
-                let bx = sx + 20;
-                ctx.fillStyle = '#74b9ff'; ctx.beginPath(); ctx.arc(bx+20, cy+20, 20, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = '22px Arial'; ctx.textAlign='center'; ctx.fillText(post.avatar, bx+20, cy+28);
-                ctx.textAlign='left';
-                
-                ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 16px Arial'; ctx.fillText(post.sender, bx + 55, cy + 15);
-                ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.fillText(post.time, bx + 55, cy + 32);
-                
-                cy += 60;
-                ctx.fillStyle = '#ddd'; ctx.font = '14px Arial';
-                let th = wrapText(ctx, post.text, bx, cy, sw - 40, 22);
-                cy += th + 20;
-                
-                ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + sw - 40, cy); ctx.stroke();
-                cy += 20;
-            }
-            maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
-        }
-
-        function drawNotes(sx, sy, sw, sh) {
-            const notes = [
-                "1 书话",
-                "2 群：1639xxxx",
-                "3 周三20:00她固定冒泡｜别聊学习，聊书",
-                "4 物理卷子周五交｜MP3找阿豪拷歌"
-            ];
-            
-            // 纸张底色
-            ctx.fillStyle = '#fffae6'; 
-            ctx.fillRect(sx, sy, sw, sh);
-            
-            // 纸张横线纹理
-            ctx.strokeStyle = '#e0d8c8'; ctx.lineWidth = 1;
-            for(let i=50; i<sh; i+=40) {
-                ctx.beginPath(); ctx.moveTo(sx, sy+i); ctx.lineTo(sx+sw, sy+i); ctx.stroke();
-            }
-
-            // 标题
-            ctx.fillStyle = '#c0392b'; ctx.font = 'bold 22px "Courier New", monospace';
-            ctx.fillText("备忘", sx + 20, sy + 35);
-
-            // 内容
-            ctx.fillStyle = '#333'; ctx.font = 'bold 16px "Courier New", monospace';
-            let cy = sy + 80;
-            for(let n of notes) {
-                let h = wrapText(ctx, n, sx + 20, cy, sw - 40, 24);
-                cy += h + 16;
-            }
-            
-            maxScrollY = 0; // 备忘录单页不需要滚动
-        }
-
         function checkFerrymanEvent() {
             if (appsOpened.size >= 3 && !ferrymanTriggered && ferrymanFailedCount === 0) {
                 ferrymanTriggered = true;
-                // 静默推送到收件箱
-                db.sms_inbox.unshift({ id: 'ferryman_q1', sender: '摆渡人', time: '刚刚', text: '你们是怎么认识的。', isSpecial: true });
+                db.whale_chat.push({ id: 'ferryman_q1', type: 'other', sender: '摆渡人', time: '刚刚', text: '你们是怎么认识的。' });
             }
         }
 
         function drawSmsMenu(sx, sy, sw, sh) {
+            let cy = sy + 40;
             let menus = [{name: '收件箱', type: 'inbox', icon: '📥'}, {name: '发件箱', type: 'outbox', icon: '📤'}];
             for(let i=0; i<menus.length; i++) {
-                let bx = sx + 20, by = sy + 20 + i*80, bw = sw - 40, bh = 70;
+                let bx = sx + 20, by = cy + i*80, bw = sw - 40, bh = 70;
                 let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
                 ctx.fillStyle = isHover ? 'rgba(243, 156, 18, 0.3)' : 'rgba(255,255,255,0.05)';
                 ctx.strokeStyle = isHover ? '#f39c12' : 'transparent'; ctx.lineWidth = 2;
@@ -903,19 +772,13 @@
                 ctx.fillStyle = '#fff'; ctx.font = '30px Arial'; ctx.fillText(menus[i].icon, bx + 15, by + 45);
                 ctx.fillStyle = '#f39c12'; ctx.font = 'bold 18px Arial'; ctx.fillText(menus[i].name, bx + 65, by + 42);
                 
-                // 红点
-                let hasUnreadFerryman = db.sms_inbox.some(s => s.id === 'ferryman_q1');
-                if (menus[i].type === 'inbox' && ferrymanTriggered && hasUnreadFerryman) {
-                    ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(bx + bw - 25, by + 35, 8, 0, Math.PI*2); ctx.fill();
-                }
-
                 addRegion(bx, by, bw, bh, () => { smsBoxType = menus[i].type; currentApp = 'sms_list'; scrollY = 0; });
             }
         }
 
         function drawSmsList(sx, sy, sw, sh) {
             let list = smsBoxType === 'inbox' ? db.sms_inbox : db.sms_outbox;
-            let cy = sy + 10 - scrollY;
+            let cy = sy + 50 - scrollY;
             ctx.fillStyle = '#f39c12'; ctx.font = 'bold 16px Arial';
             ctx.fillText(smsBoxType === 'inbox' ? " 收件箱" : " 发件箱", sx + 10, cy); cy += 20;
 
@@ -925,8 +788,8 @@
                     let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
                     ctx.fillStyle = isHover ? 'rgba(255,255,255,0.1)' : 'transparent'; ctx.fillRect(bx, by, bw, bh);
                     
-                    ctx.fillStyle = sms.isSpecial ? '#e74c3c' : '#fff'; ctx.font = 'bold 16px Arial';
-                    ctx.fillText((smsBoxType === 'inbox' ? sms.sender : sms.receiver) + (sms.isSpecial ? " [!]" : ""), bx + 15, by + 25);
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial';
+                    ctx.fillText((smsBoxType === 'inbox' ? sms.sender : sms.receiver), bx + 15, by + 25);
                     ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.textAlign='right'; ctx.fillText(sms.time, bx + bw - 15, by + 25); ctx.textAlign='left';
                     
                     ctx.fillStyle = '#ccc'; ctx.font = '14px Arial';
@@ -934,7 +797,7 @@
                     ctx.fillText(preview.length > 22 ? preview.substring(0, 22) + "..." : preview, bx + 15, by + 50);
                     ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.stroke();
                     
-                    addRegion(bx, by, bw, bh, () => { selectedSmsId = sms.id; currentApp = 'sms_detail'; showFerrymanOptions = false; scrollY = 0; });
+                    addRegion(bx, by, bw, bh, () => { selectedSmsId = sms.id; currentApp = 'sms_detail'; scrollY = 0; });
                 }
                 cy += bh;
             }
@@ -946,99 +809,218 @@
             let sms = list.find(s => s.id === selectedSmsId);
             if (!sms) return;
 
-            let cy = sy + 20 - scrollY;
+            let cy = sy + 60 - scrollY;
             ctx.fillStyle = '#aaa'; ctx.font = '14px Arial';
             ctx.fillText((smsBoxType === 'inbox' ? "发件人: " : "收件人: ") + (sms.sender || sms.receiver), sx + 20, cy); cy += 25;
             ctx.fillText("时间: " + sms.time, sx + 20, cy); cy += 25;
             ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.moveTo(sx + 20, cy); ctx.lineTo(sx + sw - 20, cy); ctx.stroke(); cy += 25;
 
-            // 特殊处理带附件的短信
-            if (sms.text.includes('【附件：IMG_001】')) {
-                let parts = sms.text.split('【附件：IMG_001】');
-                ctx.fillStyle = '#aaa'; ctx.font = '14px Arial';
-                ctx.fillText("【附件：IMG_001】", sx + 20, cy); cy += 25;
-                
-                let attW = sw - 80;
-                let attH = 180;
-                
-                // 渲染公用的附件图像
-                drawIMG001(ctx, sx + 20, cy, attW, attH);
-                ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.strokeRect(sx + 20, cy, attW, attH);
-                cy += attH + 20;
-                
-                ctx.fillStyle = '#fff'; ctx.font = '16px Arial';
-                let remainingText = parts[1] ? parts[1].trim() : "";
-                if(remainingText) cy += wrapText(ctx, remainingText, sx + 20, cy, sw - 40, 24);
-            } else {
-                ctx.fillStyle = '#fff'; ctx.font = '16px Arial';
-                cy += wrapText(ctx, sms.text, sx + 20, cy, sw - 40, 24);
-            }
+            ctx.fillStyle = '#fff'; ctx.font = '16px Arial';
+            cy += wrapText(ctx, sms.text, sx + 20, cy, sw - 40, 24);
+            cy += 30;
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
+        }
+
+        function drawContacts(sx, sy, sw, sh) {
+            let cy = sy + 50 - scrollY;
+            ctx.fillStyle = '#9b59b6'; ctx.font = 'bold 16px Arial';
+            if (cy > sy - 20 && cy < sy + sh) ctx.fillText("通讯录 (本地存储)", sx + 20, cy);
             cy += 30;
 
-            // 摆渡人互动选择
-            if (sms.id === 'ferryman_q1' && !evidenceDestroyed) {
-                if (!showFerrymanOptions) {
-                    let btnY = cy + 20;
-                    ctx.fillStyle = '#e74c3c'; roundRect(ctx, sx+20, btnY, sw-40, 45, 5, true, false);
-                    ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.font='bold 15px Arial'; ctx.fillText("[ 回复指令 ]", sx+sw/2, btnY+28); ctx.textAlign='left';
-                    addRegion(sx+20, btnY, sw-40, 45, () => { showFerrymanOptions = true; scrollY = 0; });
-                } else {
-                    let options = [
-                        { id: 'A', text: "旧城书话。她聊《人间失格》，我接的话。" },
-                        { id: 'B', text: "同学介绍的。" },
-                        { id: 'C', text: "书店。她在看《人间失格》，我搭的话。" }
-                    ];
-                    for (let opt of options) {
-                        let bx = sx + 20, by = cy, bh = 50;
-                        let isClicked = ferrymanClickedOptions.has(opt.id);
-                        let isHover = !isClicked && mouseX >= bx && mouseX <= bx + sw - 40 && mouseY >= by && mouseY <= by + bh;
-                        
-                        ctx.fillStyle = isClicked ? 'rgba(100, 100, 100, 0.2)' : (isHover ? 'rgba(231, 76, 60, 0.4)' : 'rgba(231, 76, 60, 0.1)');
-                        ctx.strokeStyle = isClicked ? '#555' : '#e74c3c'; 
-                        ctx.lineWidth = 1; 
-                        roundRect(ctx, bx, by, sw - 40, bh, 6, true, true);
-                        
-                        ctx.fillStyle = isClicked ? '#777' : '#fff'; 
-                        ctx.font='14px Arial'; 
-                        ctx.fillText(opt.id + ". " + opt.text, bx + 15, by + 30);
-                        
-                        if (!isClicked) {
-                            addRegion(bx, by, sw-40, bh, () => {
-                                if (opt.id === 'A') {
-                                    sms.text += "\n\n【已回复】: " + opt.text; sms.id = 'ferryman_q1_done';
-                                    db.sms_inbox.unshift({ id: 'f_ok', sender: '摆渡人', time: '刚刚', text: '记得挺牢。明天开始，让她多讲讲她家里。' });
-                                    secondPhoneVisible = true;
-                                    currentApp = 'sms_list'; scrollY = 0;
-                                } else {
-                                    ferrymanClickedOptions.add(opt.id);
-                                    ferrymanFailedCount++;
-                                    if (ferrymanFailedCount === 1) {
-                                        db.sms_inbox.unshift({ id: 'f_warn', sender: '摆渡人', time: '刚刚', text: '不对。你不是他。', isSpecial: true });
-                                        currentApp = 'sms_list'; scrollY = 0;
-                                    } else if (ferrymanFailedCount === 2) {
-                                        sms.id = 'ferryman_q1_done'; 
-                                        // 第一次推入被发现的短信
-                                        db.sms_inbox.unshift({ id: 'f_die1', sender: '摆渡人', time: '刚刚', text: '手机落到别人手里了。', isSpecial: true });
-                                        currentApp = 'sms_list'; scrollY = 0;
-                                        
-                                        // 延迟几秒后，推入绝杀短信并销毁证据 (unshift 导致最新的在最上面)
-                                        setTimeout(() => {
-                                            db.sms_inbox.unshift({ id: 'f_die2', sender: '摆渡人', time: '刚刚', text: '那就都别要了。', isSpecial: true });
-                                            evidenceDestroyed = true;
-                                        }, 2500);
-                                    }
-                                }
-                            });
-                        }
-                        cy += bh + 15;
-                    }
+            for (let c of db.contacts) {
+                let bx = sx + 10, by = cy, bh = 60, bw = sw - 20;
+                if (by + bh > sy && by < sy + sh) {
+                    let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
+                    ctx.fillStyle = isHover ? 'rgba(255,255,255,0.1)' : 'transparent'; 
+                    ctx.fillRect(bx, by, bw, bh);
+                    
+                    ctx.fillStyle = '#9b59b6'; ctx.beginPath(); ctx.arc(bx + 30, by + 30, 18, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '18px Arial'; ctx.textAlign='center';
+                    ctx.fillText(c.name.charAt(0), bx + 30, by + 36);
+                    
+                    ctx.textAlign='left'; ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.fillText(c.name, bx + 60, by + 26);
+                    ctx.fillStyle = '#aaa'; ctx.font = '14px Arial'; ctx.fillText(c.phone, bx + 60, by + 46);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.stroke();
                 }
+                cy += bh;
             }
             maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
         }
 
+        function drawNotes(sx, sy, sw, sh) {
+            ctx.fillStyle = '#fffae6'; ctx.fillRect(sx, sy, sw, sh);
+            ctx.fillStyle = '#333'; ctx.font = '16px "Courier New", monospace';
+            let cy = sy + 60;
+            for(let n of db.notes) {
+                wrapText(ctx, n, sx + 20, cy, sw - 40, 28);
+                cy += 50;
+            }
+        }
+
+        function drawIMG001(ctx, bx, by, imgW, imgH) {
+            ctx.save(); ctx.beginPath(); ctx.rect(bx, by, imgW, imgH); ctx.clip();
+            ctx.fillStyle = '#5d4037'; ctx.fillRect(bx, by, imgW, imgH);
+            
+            let gradient = ctx.createRadialGradient(bx+imgW*0.8, by+imgH*0.2, 10, bx+imgW*0.8, by+imgH*0.2, imgW);
+            gradient.addColorStop(0, '#ff8a65'); gradient.addColorStop(1, 'rgba(0,0,0,0.6)');
+            ctx.fillStyle = gradient; ctx.fillRect(bx, by, imgW, imgH);
+            
+            ctx.fillStyle = '#111'; ctx.beginPath();
+            ctx.arc(bx+imgW*0.4, by+imgH*0.5, 25, 0, Math.PI*2); 
+            ctx.moveTo(bx+imgW*0.4-20, by+imgH*0.5+10); ctx.lineTo(bx+imgW*0.4-30, by+imgH);
+            ctx.lineTo(bx+imgW*0.4+50, by+imgH); ctx.lineTo(bx+imgW*0.4+20, by+imgH*0.5+20);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#222'; ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.moveTo(bx+imgW*0.7, by); ctx.lineTo(bx+imgW*0.7, by+imgH); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx+imgW*0.7, by+imgH*0.4); ctx.lineTo(bx+imgW, by+imgH*0.4); ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawWhaleChat(sx, sy, sw, sh) {
+            let cy = sy + 60 - scrollY; 
+            
+            ctx.fillStyle = '#0a0d12'; ctx.fillRect(sx, sy, sw, sh);
+            if (cy > sy - 50 && cy < sy + sh) {
+                ctx.fillStyle = '#1abc9c'; ctx.font = 'bold 14px "Courier New"'; ctx.textAlign = 'center';
+                ctx.fillText("--- W.H.A.L.E. SECURE NODE ---", sx + sw/2, cy);
+                ctx.textAlign = 'left';
+            }
+            cy += 40;
+
+            for (let m of db.whale_chat) {
+                let isMe = m.type === 'me';
+                let hasImg = m.text.includes('【附件：IMG_001】');
+                let displayTxt = m.text.replace('【附件：IMG_001】', '').trim();
+                
+                ctx.fillStyle = '#555'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+                if(cy > sy && cy < sy + sh) ctx.fillText(m.time, sx + sw/2, cy);
+                ctx.textAlign = 'left';
+                cy += 20;
+                
+                let textW = ctx.measureText(displayTxt).width;
+                let bw = hasImg ? sw * 0.7 : Math.min(textW + 30, sw*0.7);
+                let bx = isMe ? sx + sw - bw - 15 : sx + 15;
+                
+                let bubbleH = 20;
+                if (hasImg) bubbleH += 150;
+                let fakeP = displayTxt.split('\n');
+                let lineCount = 0;
+                for(let p of fakeP) {
+                    if (p === '') continue;
+                    let words = p.split(''); let line = '';
+                    for(let n=0; n<words.length; n++) {
+                        let testLine = line + words[n];
+                        if(ctx.measureText(testLine).width > bw - 20 && n > 0) { lineCount++; line = words[n]; }
+                        else { line = testLine; }
+                    }
+                    lineCount++;
+                }
+                if(lineCount === 0 && hasImg) lineCount = 0;
+                bubbleH += lineCount * 20;
+                if(lineCount > 0) bubbleH += 10;
+                
+                if (!hasImg && lineCount === 1) bw = textW + 30;
+                if (isMe) bx = sx + sw - bw - 15;
+
+                if (cy + bubbleH > sy && cy < sy + sh) {
+                    ctx.fillStyle = isMe ? '#0e6655' : '#1b2631';
+                    roundRect(ctx, bx, cy, bw, bubbleH, 8, true, false);
+                    
+                    let textY = cy + 20;
+                    if (hasImg) {
+                        drawIMG001(ctx, bx + 10, textY, bw - 20, 140);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.strokeRect(bx + 10, textY, bw - 20, 140);
+                        textY += 155;
+                    }
+                    
+                    ctx.fillStyle = '#1abc9c'; ctx.font = '14px Arial';
+                    if(displayTxt) wrapText(ctx, displayTxt, bx + 15, textY, bw - 30, 20);
+                }
+                cy += bubbleH + 20;
+                
+                if (m.id === 'ferryman_q1' && !evidenceDestroyed) {
+                    if (!showFerrymanOptions) {
+                        let btnY = cy;
+                        if (btnY + 45 > sy && btnY < sy + sh) {
+                            ctx.fillStyle = '#e74c3c'; roundRect(ctx, sx+20, btnY, sw-40, 45, 5, true, false);
+                            ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.font='bold 14px Arial'; ctx.fillText("[ 拦截到高权限交互指令，点击回复 ]", sx+sw/2, btnY+28); ctx.textAlign='left';
+                            addRegion(sx+20, btnY, sw-40, 45, () => { showFerrymanOptions = true; scrollY = 0; });
+                        }
+                        cy += 65;
+                    } else {
+                        let options = [
+                            { id: 'A', text: "旧城书话。她聊《人间失格》，我接的话。" },
+                            { id: 'B', text: "同学介绍的。" },
+                            { id: 'C', text: "书店。她在看《人间失格》，我搭的话。" }
+                        ];
+                        for (let opt of options) {
+                            let optBx = sx + 20, optBy = cy, optBh = 50;
+                            let isClicked = ferrymanClickedOptions.has(opt.id);
+                            
+                            if (optBy + optBh > sy && optBy < sy + sh) {
+                                let isHover = !isClicked && mouseX >= optBx && mouseX <= optBx + sw - 40 && mouseY >= optBy && mouseY <= optBy + optBh;
+                                
+                                ctx.fillStyle = isClicked ? 'rgba(100, 100, 100, 0.2)' : (isHover ? 'rgba(26, 188, 156, 0.4)' : 'rgba(26, 188, 156, 0.1)');
+                                ctx.strokeStyle = isClicked ? '#555' : '#1abc9c'; 
+                                ctx.lineWidth = 1; 
+                                roundRect(ctx, optBx, optBy, sw - 40, optBh, 6, true, true);
+                                
+                                ctx.fillStyle = isClicked ? '#777' : '#1abc9c'; ctx.font='14px Arial'; 
+                                ctx.fillText(opt.id + ". " + opt.text, optBx + 15, optBy + 30);
+                                
+                                if (!isClicked) {
+                                    addRegion(optBx, optBy, sw-40, optBh, () => {
+                                        if (opt.id === 'A') {
+                                            m.text += "\n\n【已发送】: " + opt.text; m.id = 'ferryman_q1_done';
+                                            db.whale_chat.push({ id: 'f_ok', type: 'other', sender: '摆渡人', time: '刚刚', text: '记得挺牢。明天开始，让她多讲讲她家里。' });
+                                            secondPhoneVisible = true;
+                                            scrollY = 0;
+                                        } else {
+                                            ferrymanClickedOptions.add(opt.id);
+                                            ferrymanFailedCount++;
+                                            if (ferrymanFailedCount === 1) {
+                                                db.whale_chat.push({ id: 'f_warn', type: 'other', sender: '摆渡人', time: '刚刚', text: '不对。你不是他。' });
+                                                scrollY = 0;
+                                            } else if (ferrymanFailedCount === 2) {
+                                                m.id = 'ferryman_q1_done'; 
+                                                db.whale_chat.push({ id: 'f_die1', type: 'other', sender: '摆渡人', time: '刚刚', text: '手机落到别人手里了。' });
+                                                scrollY = 0;
+                                                
+                                                // Game Over 序列播放
+                                                setTimeout(() => {
+                                                    db.whale_chat.push({ id: 'f_die2', type: 'other', sender: '摆渡人', time: '刚刚', text: '那就都别要了。' });
+                                                    
+                                                    setTimeout(() => {
+                                                        evidenceDestroyed = true;
+                                                        currentApp = 'desktop'; // 强制踢出应用
+                                                        
+                                                        // 删除失眠的鲸
+                                                        let appIdx = appsList.findIndex(a => a.id === 'whale_app');
+                                                        if (appIdx !== -1) appsList.splice(appIdx, 1);
+                                                        
+                                                        // 在桌面停留1.5秒后爆出 Game Over
+                                                        setTimeout(() => {
+                                                            gameState = 'GAME_OVER';
+                                                        }, 1500);
+                                                        
+                                                    }, 2500); // 留2.5秒读字
+                                                }, 2000); // 留2秒读上一句
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                            cy += optBh + 15;
+                        }
+                    }
+                }
+            }
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh) + 50);
+        }
+
         function drawGalleryList(sx, sy, sw, sh) {
-            let cy = sy + 10 - scrollY;
+            let cy = sy + 50 - scrollY;
             let cols = 3; let padding = 12;
             let imgW = (sw - padding*4) / cols; let imgH = imgW;
             
@@ -1067,156 +1049,12 @@
             maxScrollY = Math.max(0, cy + totalRows * (imgH + 40) + scrollY - (sy + sh));
         }
 
-        function drawLockScreen() {
-            let w = canvas.width, h = canvas.height;
-            if (w === 0 || h === 0) return;
-
-            let bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-            bgGrad.addColorStop(0, '#1e2129'); bgGrad.addColorStop(1, '#111318');
-            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, w, h);
-
-            ctx.fillStyle = 'rgba(243, 156, 18, 0.03)';
-            ctx.beginPath(); ctx.arc(w/2, h/2, 600, 0, Math.PI*2); ctx.fill();
-
-            drawDisconnectButton(w - 180, 30);
-
-            let cx = w / 2, cy = h / 2;
-            let panelW = 340, panelH = 500;
-            let sx = cx - panelW / 2, sy = cy - panelH / 2;
-
-            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 10;
-            ctx.fillStyle = '#1c2128'; roundRect(ctx, sx, sy, panelW, panelH, 15, true, false);
-            ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-            ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 2; roundRect(ctx, sx, sy, panelW, panelH, 15, false, true);
-
-            ctx.fillStyle = '#f39c12'; ctx.font = 'bold 22px Arial'; ctx.textAlign = 'center';
-            ctx.fillText("S40-02 访问授权 / 阿树终端", cx, sy + 40);
-
-            ctx.fillStyle = '#0a0d12'; roundRect(ctx, sx + 40, sy + 70, panelW - 80, 50, 5, true, false);
-            ctx.strokeStyle = '#333'; ctx.lineWidth = 1; roundRect(ctx, sx + 40, sy + 70, panelW - 80, 50, 5, false, true);
-            
-            let displayStr = lockPasswordInput.replace(/./g, '●');
-            ctx.fillStyle = '#fff'; ctx.font = '24px Arial';
-            ctx.fillText(displayStr || "请输入 4 位解锁密码", cx, sy + 105);
-
-            if (lockErrorMsg) {
-                ctx.fillStyle = '#e74c3c'; ctx.font = '14px Arial';
-                ctx.fillText(lockErrorMsg, cx, sy + 145);
-            }
-
-            let keys = [
-                ['1','2','3'],
-                ['4','5','6'],
-                ['7','8','9'],
-                ['清除','0','确认']
-            ];
-            let keyY = sy + 170;
-            for(let r=0; r<4; r++) {
-                let keyX = sx + 50;
-                for(let c=0; c<3; c++) {
-                    let k = keys[r][c];
-                    let kw = 60, kh = 60;
-                    
-                    let isHover = mouseX >= keyX && mouseX <= keyX+kw && mouseY >= keyY && mouseY <= keyY+kh;
-                    ctx.fillStyle = isHover ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
-                    ctx.strokeStyle = isHover ? '#f39c12' : 'rgba(255,255,255,0.2)';
-                    
-                    roundRect(ctx, keyX, keyY, kw, kh, 8, true, true);
-                    
-                    ctx.fillStyle = (k==='确认' && lockPasswordInput.length > 0) ? '#f39c12' : '#fff'; 
-                    if (k === '清除') ctx.fillStyle = '#e74c3c';
-                    ctx.font = (k==='清除'||k==='确认') ? '16px Arial' : '24px Arial';
-                    ctx.fillText(k, keyX + kw/2, keyY + kh/2 + 8);
-
-                    addRegion(keyX, keyY, kw, kh, () => {
-                        lockErrorMsg = '';
-                        if (k === '清除') {
-                            lockPasswordInput = lockPasswordInput.slice(0, -1);
-                        } else if (k === '确认') {
-                            if (lockPasswordInput === '0316') {
-                                secondPhoneDecrypted = true;
-                                activePhoneId = 2;
-                                gameState = 'DESKTOP';
-                                currentApp = 'desktop';
-                            } else {
-                                lockErrorMsg = '密码错误，拒绝访问';
-                                lockPasswordInput = '';
-                            }
-                        } else {
-                            if (lockPasswordInput.length < 4) lockPasswordInput += k;
-                        }
-                    });
-                    keyX += 90;
-                }
-                keyY += 75;
-            }
-            ctx.textAlign = 'left';
-        }
-
-        // --- 抽取独立的 IMG_001 绘图函数以供复用 ---
-        function drawIMG001(ctx, bx, by, w, h) {
-            ctx.save();
-            ctx.beginPath(); ctx.rect(bx, by, w, h); ctx.clip();
-
-            // 背景：窗外的强光
-            let bgGrad = ctx.createLinearGradient(bx + w*0.8, by, bx, by + h);
-            bgGrad.addColorStop(0, '#ffcc80'); // 强烈的光晕
-            bgGrad.addColorStop(0.5, '#8d6e63'); // 室内过渡
-            bgGrad.addColorStop(1, '#2c1914'); // 室内暗角
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(bx, by, w, h);
-
-            // 窗框
-            ctx.fillStyle = '#1a0f0c'; // 逆光的窗框发黑
-            ctx.fillRect(bx + w * 0.65, by, 15, h);
-            ctx.fillRect(bx + w * 0.4, by + h * 0.35, w * 0.6, 15);
-
-            // 光晕叠加 (模拟逆光镜头眩光)
-            let glare = ctx.createRadialGradient(bx + w*0.8, by + h*0.2, 0, bx + w*0.8, by + h*0.2, w*0.7);
-            glare.addColorStop(0, 'rgba(255,255,255,0.9)');
-            glare.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = glare;
-            ctx.fillRect(bx, by, w, h);
-
-            // 女生剪影 (右偏靠近窗户，低头看书)
-            ctx.fillStyle = '#0a0503';
-            ctx.beginPath();
-            
-            // 头
-            ctx.arc(bx + w*0.45, by + h*0.5, w*0.12, 0, Math.PI*2);
-            // 头发轮廓 (顺着低头的方向倾斜，使用椭圆)
-            if(ctx.ellipse) ctx.ellipse(bx + w*0.4, by + h*0.55, w*0.12, w*0.16, Math.PI/4, 0, Math.PI*2);
-            ctx.fill();
-
-            // 身体
-            ctx.beginPath();
-            // 左肩到背部
-            ctx.moveTo(bx + w*0.25, by + h);
-            ctx.lineTo(bx + w*0.3, by + h*0.7);
-            // 脖子/右肩
-            ctx.lineTo(bx + w*0.5, by + h*0.7);
-            ctx.lineTo(bx + w*0.6, by + h);
-            ctx.fill();
-
-            // 手和书的几何体
-            ctx.fillStyle = '#111';
-            ctx.beginPath();
-            ctx.moveTo(bx + w*0.45, by + h*0.75); // 手臂
-            ctx.lineTo(bx + w*0.65, by + h*0.85); // 书本远端
-            ctx.lineTo(bx + w*0.55, by + h);      // 底部
-            ctx.lineTo(bx + w*0.35, by + h);      // 底部
-            ctx.fill();
-
-            ctx.restore();
-        }
-
         function drawGalleryDetail(sx, sy, sw, sh) {
             let img = db.gallery.find(i => i.id === selectedImgId);
             if (!img) return;
 
-            let bx = sx + 20, by = sy + 20, imgW = sw - 40, imgH = 260;
+            let bx = sx + 20, by = sy + 60, imgW = sw - 40, imgH = 260;
             
-            // 摧毁判定
             if (evidenceDestroyed && (img.id === 'img_009' || img.id === 'img_010')) {
                 ctx.fillStyle = '#1a0000'; ctx.fillRect(bx, by, imgW, imgH);
                 ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 2; ctx.strokeRect(bx, by, imgW, imgH);
@@ -1225,21 +1063,19 @@
                 return;
             }
 
-            // 纯安全图像绘制 (不使用会导致全局污染的 blur)
             ctx.save(); ctx.beginPath(); ctx.rect(bx, by, imgW, imgH); ctx.clip();
             
-            if (img.id === 'img_001') {
+            if (img.type === 'scene_window') {
                 drawIMG001(ctx, bx, by, imgW, imgH);
             } else if (img.type.startsWith('scene')) {
-                ctx.fillStyle = img.type === 'scene_eat' ? '#37474f' : '#33691e';
+                ctx.fillStyle = (img.type === 'scene_eat' ? '#37474f' : '#33691e');
                 ctx.fillRect(bx, by, imgW, imgH);
                 
                 let gradient = ctx.createRadialGradient(bx+imgW*0.8, by+imgH*0.2, 10, bx+imgW*0.8, by+imgH*0.2, imgW);
-                if(img.type === 'scene_eat') { gradient.addColorStop(0, '#90a4ae'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); } // 食堂
-                if(img.type === 'scene_bus') { gradient.addColorStop(0, '#fff59d'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); } // 路灯
+                if(img.type === 'scene_eat') { gradient.addColorStop(0, '#90a4ae'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); }
+                if(img.type === 'scene_bus') { gradient.addColorStop(0, '#fff59d'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); }
                 ctx.fillStyle = gradient; ctx.fillRect(bx, by, imgW, imgH);
                 
-                // 剪影
                 ctx.fillStyle = '#111'; ctx.beginPath();
                 if (img.type === 'scene_eat') {
                     ctx.arc(bx+imgW*0.5, by+imgH*0.6, 20, 0, Math.PI*2); 
@@ -1251,21 +1087,18 @@
                 }
                 ctx.fill();
             } else if (img.type === 'blur_diary') {
-                // 安全的模糊实现：多层半透明错位叠加文字
                 ctx.fillStyle = '#d7ccc8'; ctx.fillRect(bx, by, imgW, imgH); 
                 ctx.font = 'bold 24px Arial'; 
                 for(let i=0; i<20; i++) {
                     ctx.fillStyle = `rgba(50, 50, 50, 0.04)`;
                     ctx.fillText(img.blur, bx+10 + Math.random()*20, by+50 + (i%5)*40 + Math.random()*20);
                 }
-                // 核心字眼血红浮现
                 ctx.fillStyle = 'rgba(180, 0, 0, 0.9)'; ctx.font = 'bold 36px Arial';
                 ctx.fillText(img.text, bx+30, by+imgH/2);
             } else if (img.type === 'sharp_text') {
                 ctx.fillStyle = '#efebe9'; ctx.fillRect(bx, by, imgW, imgH);
                 ctx.fillStyle = '#111'; ctx.font = 'bold 16px Arial';
-                let cy = by + 40;
-                let lines = img.text.split('\n');
+                let cy = by + 40; let lines = img.text.split('\n');
                 for(let l of lines) { ctx.fillText(l, bx+15, cy); cy+=30; }
             } else {
                 ctx.fillStyle = '#2c3e50'; ctx.fillRect(bx, by, imgW, imgH);
@@ -1273,22 +1106,148 @@
             }
             ctx.restore();
 
-            // 边框及说明
             ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 3; ctx.strokeRect(bx, by, imgW, imgH);
-            ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 18px Arial';
-            ctx.fillText(img.title, bx, by + imgH + 40);
-            if(img.desc) {
-                ctx.fillStyle = '#ccc'; ctx.font = '14px Arial';
-                wrapText(ctx, img.desc, bx, by + imgH + 70, imgW, 20);
+            ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 18px Arial'; ctx.fillText(img.title, bx, by + imgH + 40);
+            if(img.desc) { ctx.fillStyle = '#ccc'; ctx.font = '14px Arial'; wrapText(ctx, img.desc, bx, by + imgH + 70, imgW, 20); }
+        }
+
+        function drawQQMenu(sx, sy, sw, sh) {
+            let cy = sy + 40;
+            let menus = [
+                {name: '联系人 (私聊)', cat: 'friends', icon: '👤', desc: '阿树, 念念想冬眠 等'}, 
+                {name: '群组聊天', cat: 'groups', icon: '👥', desc: 'GAME OVER电玩, 高二三班 等'},
+                {name: 'QQ空间动态', cat: 'qzone', icon: '🌟', desc: '异常拦截记录'}
+            ];
+            for (let i = 0; i < menus.length; i++) {
+                let bx = sx + 20, by = cy + i*80, bw = sw - 40, bh = 70;
+                let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
+                ctx.fillStyle = isHover ? 'rgba(46, 204, 113, 0.3)' : 'rgba(255,255,255,0.05)';
+                ctx.strokeStyle = isHover ? '#2ecc71' : 'transparent'; ctx.lineWidth=2;
+                roundRect(ctx, bx, by, bw, bh, 10, true, isHover);
+                
+                ctx.fillStyle = '#fff'; ctx.font = '30px Arial'; ctx.fillText(menus[i].icon, bx + 15, by + 45);
+                ctx.fillStyle = '#2ecc71'; ctx.font = 'bold 18px Arial'; ctx.fillText(menus[i].name, bx + 65, by + 35);
+                ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.fillText(menus[i].desc, bx + 65, by + 55);
+                
+                addRegion(bx, by, bw, bh, () => { 
+                    if (menus[i].cat === 'qzone') currentApp = 'qq_qzone';
+                    else { currentApp = 'qq_list'; qqCategory = menus[i].cat; }
+                    scrollY = 0; 
+                });
             }
         }
 
+        function drawQQList(sx, sy, sw, sh) {
+            let list = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
+            let cy = sy + 50 - scrollY;
+            for (let item of list) {
+                let bx = sx + 10, by = cy, bh = 70;
+                if (by + bh > sy && by < sy + sh) {
+                    let isHover = mouseX >= bx && mouseX <= bx + sw - 20 && mouseY >= by && mouseY <= by + bh;
+                    ctx.fillStyle = isHover ? 'rgba(255,255,255,0.1)' : 'transparent'; ctx.fillRect(bx, by, sw - 20, bh);
+                    
+                    ctx.fillStyle = qqCategory === 'groups' ? '#e67e22' : '#9b59b6';
+                    ctx.beginPath(); ctx.arc(bx + 35, by + 35, 22, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign='center';
+                    ctx.fillText(item.avatar || (qqCategory==='groups'?'👥':'👤'), bx + 35, by + 43);
+                    
+                    ctx.textAlign='left'; ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 16px Arial';
+                    ctx.fillText(item.name + (item.members ? ` (${item.members}人)` : ''), bx + 70, by + 35);
+                    
+                    let lastMsg = item.messages[item.messages.length-1].text.replace(/\n/g, ' ');
+                    ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
+                    ctx.fillText(lastMsg.length > 20 ? lastMsg.substring(0,20)+"..." : lastMsg, bx + 70, by + 55);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, by + bh); ctx.lineTo(bx + sw - 20, by + bh); ctx.stroke();
+                    
+                    addRegion(bx, by, sw - 20, bh, () => { selectedQQId = item.id; currentApp = 'qq_chat'; scrollY = 0; });
+                }
+                cy += bh;
+            }
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
+        }
+
+        function drawQQChat(sx, sy, sw, sh) {
+            let cy = sy + 60 - scrollY; 
+            let dataList = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
+            let chatData = dataList.find(c => c.id === selectedQQId);
+            if (!chatData) return;
+
+            for (let m of chatData.messages) {
+                if (m.type === 'time' || m.type === 'system') {
+                    if (cy > sy && cy < sy + sh) {
+                        ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
+                        let lines = m.text.split('\n');
+                        for(let i=0; i<lines.length; i++) ctx.fillText(lines[i], sx + sw/2, cy + i*16);
+                        ctx.textAlign = 'left';
+                    }
+                    cy += 40;
+                } else {
+                    let isMe = m.type === 'me';
+                    ctx.font = '14px Arial';
+                    let textWidth = ctx.measureText(m.text).width;
+                    let maxBubbleW = sw * 0.6;
+                    let bubbleW = Math.min(textWidth + 20, maxBubbleW);
+                    let bubbleH = 30 + Math.floor(textWidth / maxBubbleW) * 20;
+                    
+                    if (cy + bubbleH + 30 > sy && cy < sy + sh) {
+                        let bx = isMe ? sx + sw - bubbleW - 55 : sx + 55;
+                        
+                        let avX = isMe ? sx + sw - 30 : sx + 30;
+                        ctx.fillStyle = isMe ? '#95a5a6' : '#8e44ad';
+                        if(m.sender==='念念想冬眠') ctx.fillStyle = '#74b9ff';
+                        if(m.sender==='阿树') ctx.fillStyle = '#e67e22';
+                        ctx.beginPath(); ctx.arc(avX, cy + 15, 18, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle='#fff'; ctx.font='18px Arial'; ctx.textAlign='center';
+                        let avIcon = m.sender==='念念想冬眠' ? '👧' : (m.sender==='阿树' ? '👦' : m.sender.charAt(0));
+                        if(isMe) avIcon = '🪨';
+                        ctx.fillText(avIcon, avX, cy+22);
+                        
+                        ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.textAlign = isMe ? 'right' : 'left';
+                        ctx.fillText(m.sender, isMe ? sx + sw - 60 : sx + 60, cy);
+                        
+                        ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff'; ctx.textAlign = 'left';
+                        roundRect(ctx, bx, cy + 5, bubbleW, bubbleH, 8, true, false);
+                        ctx.fillStyle = '#333'; ctx.font = '13px Arial';
+                        wrapText(ctx, m.text, bx + 10, cy + 22, bubbleW - 20, 18);
+                    }
+                    cy += bubbleH + 30;
+                }
+            }
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh) + 50);
+        }
+
+        function drawQQZone(sx, sy, sw, sh) {
+            let cy = sy + 60 - scrollY; 
+            for (let post of db.qq_qzone) {
+                let bx = sx + 20;
+                if (cy + 100 > sy && cy < sy + sh) {
+                    ctx.fillStyle = '#74b9ff'; ctx.beginPath(); ctx.arc(bx+20, cy+20, 20, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = '22px Arial'; ctx.textAlign='center'; ctx.fillText(post.avatar, bx+20, cy+28);
+                    ctx.textAlign='left';
+                    
+                    ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 16px Arial'; ctx.fillText(post.sender, bx + 55, cy + 15);
+                    ctx.fillStyle = '#888'; ctx.font = '12px Arial'; ctx.fillText(post.time, bx + 55, cy + 32);
+                }
+                cy += 60;
+                
+                ctx.fillStyle = '#ddd'; ctx.font = '14px Arial';
+                let th = wrapText(ctx, post.text, bx, cy, sw - 40, 22);
+                cy += th + 20;
+                
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, cy); ctx.lineTo(bx + sw - 40, cy); ctx.stroke();
+                cy += 20;
+            }
+            maxScrollY = Math.max(0, cy + scrollY - (sy + sh));
+        }
+
         function draw() {
-            clickRegions = [];
+            clickRegions = []; // Clear per frame
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             if (gameState === 'START_SCREEN') drawStartScreen();
-            else if (gameState === 'LOCK_SCREEN') drawLockScreen();
+            else if (gameState === 'PASSWORD_INPUT') drawPasswordScreen();
+            else if (gameState === 'ASHU_PHONE') drawAshuPhone();
+            else if (gameState === 'GAME_OVER') drawGameOverScreen();
             else drawMainUI();
             
             timeTick++;
@@ -1303,21 +1262,20 @@
             for (let i = clickRegions.length - 1; i >= 0; i--) {
                 let r = clickRegions[i];
                 if (mouseX >= r.x && mouseX <= r.x + r.w && mouseY >= r.y && mouseY <= r.y + r.h) {
-                    r.onClick(); break;
+                    r.onClick(); break; // Stop at highest z-index element
                 }
             }
         });
 
         canvas.addEventListener('wheel', e => {
-            e.preventDefault(); // 防止网页一起滚
-            let scrollable = ['sms_list', 'sms_detail', 'gallery_list', 'qq_list', 'qq_chat', 'qq_qzone'];
-            if (gameState !== 'START_SCREEN' && scrollable.includes(currentApp)) {
+            e.preventDefault(); 
+            let scrollable = ['sms_list', 'sms_detail', 'gallery_list', 'qq_list', 'qq_chat', 'qq_qzone', 'whale_app', 'notes', 'contacts'];
+            if (gameState === 'DESKTOP' && scrollable.includes(currentApp)) {
                 scrollY += e.deltaY * 0.5;
                 scrollY = Math.max(0, Math.min(maxScrollY, scrollY));
             }
         }, { passive: false });
 
-        // 启动应用
         resize();
         draw();
     </script>
