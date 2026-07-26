@@ -68,9 +68,7 @@
                 { id: 'in_2', sender: '大头', time: '3月11日 17:32', text: '明天放学打球，老地方。这次再放鸽子以后别来了。' },
                 { id: 'in_3', sender: 'QQ安全中心', time: '3月12日 20:03', text: '您登录的QQ号码于20:03在本机上线。如非本人操作，请尽快修改密码。' }
             ],
-            sms_outbox: [
-                { id: 'out_1', receiver: '大头', time: '3月11日 17:30', text: '明天不去打球了，有点事。' }
-            ],
+            sms_outbox: [],
             notes: [
                 "1. 书话",
                 "2. 群：1639xxxx",
@@ -210,12 +208,12 @@
         
         function initApps() {
             appsList = [
-                { id: 'sms_menu', name: '短信息', sub: '日常联络记录', icon: '✉️', color: '#ffbd2d' },
-                { id: 'gallery_list', name: '相册', sub: '包含10张取证', icon: '🖼️', color: '#3498db' },
-                { id: 'notes', name: '备忘录', sub: '随手记录', icon: '📝', color: '#e67e22' },
-                { id: 'contacts', name: '通讯录', sub: '数量：142人', icon: '👥', color: '#9b59b6' },
-                { id: 'qq_menu', name: '手机QQ', sub: '2007极速版', icon: '🐧', color: '#2ecc71' },
-                { id: 'whale_app', name: '失眠的鲸', sub: '暗网节点', icon: '🐳', color: '#16a085' }
+                { id: 'sms_menu', name: '短信息', icon: '✉️', color: '#ffbd2d' },
+                { id: 'gallery_list', name: '相册', icon: '🖼️', color: '#3498db' },
+                { id: 'notes', name: '备忘录', icon: '📝', color: '#e67e22' },
+                { id: 'contacts', name: '通讯录', icon: '👥', color: '#9b59b6' },
+                { id: 'qq_menu', name: '手机QQ', icon: '🐧', color: '#2ecc71' },
+                { id: 'whale_app', name: '失眠的鲸', icon: '🐳', color: '#16a085' }
             ];
         }
 
@@ -734,9 +732,7 @@
                 ctx.fillText(appsList[i].icon, bx + itemW/2, by + 50);
                 
                 ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial';
-                ctx.fillText(appsList[i].name, bx + itemW/2, by + 85);
-                ctx.fillStyle = '#00f3ff'; ctx.font = '12px Arial';
-                ctx.fillText(appsList[i].sub, bx + itemW/2, by + 105);
+                ctx.fillText(appsList[i].name, bx + itemW/2, by + 90);
 
                 let hasUnreadFerryman = db.whale_chat.some(s => s.id === 'ferryman_q1');
                 if (appsList[i].id === 'whale_app' && ferrymanTriggered && hasUnreadFerryman) {
@@ -760,7 +756,7 @@
         }
 
         function drawSmsMenu(sx, sy, sw, sh) {
-            let cy = sy + 40;
+            let cy = sy + 60;
             let menus = [{name: '收件箱', type: 'inbox', icon: '📥'}, {name: '发件箱', type: 'outbox', icon: '📤'}];
             for(let i=0; i<menus.length; i++) {
                 let bx = sx + 20, by = cy + i*80, bw = sw - 40, bh = 70;
@@ -778,11 +774,14 @@
 
         function drawSmsList(sx, sy, sw, sh) {
             let list = smsBoxType === 'inbox' ? db.sms_inbox : db.sms_outbox;
-            let cy = sy + 50 - scrollY;
+            // 将短信列表倒序，让最新的（数组后添加的）排在最上面
+            let displayList = [...list].reverse(); 
+            
+            let cy = sy + 15 - scrollY;
             ctx.fillStyle = '#f39c12'; ctx.font = 'bold 16px Arial';
-            ctx.fillText(smsBoxType === 'inbox' ? " 收件箱" : " 发件箱", sx + 10, cy); cy += 20;
+            ctx.fillText(smsBoxType === 'inbox' ? " 收件箱" : " 发件箱", sx + 10, cy); cy += 30;
 
-            for (let sms of list) {
+            for (let sms of displayList) {
                 let bx = sx + 10, by = cy, bh = 75, bw = sw - 20;
                 if (by + bh > sy && by < sy + sh) {
                     let isHover = mouseX >= bx && mouseX <= bx+bw && mouseY >= by && mouseY <= by+bh;
@@ -822,7 +821,7 @@
         }
 
         function drawContacts(sx, sy, sw, sh) {
-            let cy = sy + 50 - scrollY;
+            let cy = sy + 65 - scrollY;
             ctx.fillStyle = '#9b59b6'; ctx.font = 'bold 16px Arial';
             if (cy > sy - 20 && cy < sy + sh) ctx.fillText("通讯录 (本地存储)", sx + 20, cy);
             cy += 30;
@@ -878,7 +877,7 @@
         }
 
         function drawWhaleChat(sx, sy, sw, sh) {
-            let cy = sy + 60 - scrollY; 
+            let cy = sy + 40 - scrollY; 
             
             ctx.fillStyle = '#0a0d12'; ctx.fillRect(sx, sy, sw, sh);
             if (cy > sy - 50 && cy < sy + sh) {
@@ -898,12 +897,16 @@
                 ctx.textAlign = 'left';
                 cy += 20;
                 
+                // 【修复2】提前设置正确的字体大小，避免因为测量字体小、渲染字体大导致的错误折行
+                ctx.font = '14px Arial'; 
                 let textW = ctx.measureText(displayTxt).width;
-                let bw = hasImg ? sw * 0.7 : Math.min(textW + 30, sw*0.7);
+                // 适当放大边界限制，确保标点符号不会卡在边缘折行
+                let bw = hasImg ? sw * 0.7 : Math.min(textW + 32, sw * 0.7);
+                let maxW = bw - 24; // 文本渲染时的严格最大宽度
                 let bx = isMe ? sx + sw - bw - 15 : sx + 15;
                 
-                let bubbleH = 20;
-                if (hasImg) bubbleH += 150;
+                let bubbleH = 16; // 缩减基础留白（上下各约8px）
+                if (hasImg) bubbleH += 145;
                 let fakeP = displayTxt.split('\n');
                 let lineCount = 0;
                 for(let p of fakeP) {
@@ -911,108 +914,114 @@
                     let words = p.split(''); let line = '';
                     for(let n=0; n<words.length; n++) {
                         let testLine = line + words[n];
-                        if(ctx.measureText(testLine).width > bw - 20 && n > 0) { lineCount++; line = words[n]; }
+                        if(ctx.measureText(testLine).width > maxW && n > 0) { lineCount++; line = words[n]; }
                         else { line = testLine; }
                     }
                     lineCount++;
                 }
                 if(lineCount === 0 && hasImg) lineCount = 0;
                 bubbleH += lineCount * 20;
-                if(lineCount > 0) bubbleH += 10;
+                // 去除了原本冗余的额外加高逻辑，使得高度刚好包覆
                 
-                if (!hasImg && lineCount === 1) bw = textW + 30;
+                if (!hasImg && lineCount === 1) bw = Math.min(textW + 32, sw*0.7);
                 if (isMe) bx = sx + sw - bw - 15;
 
                 if (cy + bubbleH > sy && cy < sy + sh) {
                     ctx.fillStyle = isMe ? '#0e6655' : '#1b2631';
                     roundRect(ctx, bx, cy, bw, bubbleH, 8, true, false);
                     
-                    let textY = cy + 20;
+                    let textY = cy + 22; // 将文字基线恰好落在气泡的视觉中心线上
                     if (hasImg) {
-                        drawIMG001(ctx, bx + 10, textY, bw - 20, 140);
-                        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.strokeRect(bx + 10, textY, bw - 20, 140);
-                        textY += 155;
+                        drawIMG001(ctx, bx + 10, cy + 10, bw - 20, 140);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.strokeRect(bx + 10, cy + 10, bw - 20, 140);
+                        textY += 145;
                     }
                     
                     ctx.fillStyle = '#1abc9c'; ctx.font = '14px Arial';
-                    if(displayTxt) wrapText(ctx, displayTxt, bx + 15, textY, bw - 30, 20);
+                    if(displayTxt) wrapText(ctx, displayTxt, bx + 12, textY, maxW, 20);
                 }
                 cy += bubbleH + 20;
-                
-                if (m.id === 'ferryman_q1' && !evidenceDestroyed) {
-                    if (!showFerrymanOptions) {
-                        let btnY = cy;
-                        if (btnY + 45 > sy && btnY < sy + sh) {
-                            ctx.fillStyle = '#e74c3c'; roundRect(ctx, sx+20, btnY, sw-40, 45, 5, true, false);
-                            ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.font='bold 14px Arial'; ctx.fillText("[ 拦截到高权限交互指令，点击回复 ]", sx+sw/2, btnY+28); ctx.textAlign='left';
-                            addRegion(sx+20, btnY, sw-40, 45, () => { showFerrymanOptions = true; scrollY = 0; });
-                        }
-                        cy += 65;
-                    } else {
-                        let options = [
-                            { id: 'A', text: "旧城书话。她聊《人间失格》，我接的话。" },
-                            { id: 'B', text: "同学介绍的。" },
-                            { id: 'C', text: "书店。她在看《人间失格》，我搭的话。" }
-                        ];
-                        for (let opt of options) {
-                            let optBx = sx + 20, optBy = cy, optBh = 50;
-                            let isClicked = ferrymanClickedOptions.has(opt.id);
+            }
+
+            // 【修复1】把摆渡人的交互选项逻辑移到消息循环外面，让其永远渲染在对话最底部
+            let activeQuest = db.whale_chat.find(m => m.id === 'ferryman_q1');
+            if (activeQuest && !evidenceDestroyed) {
+                if (!showFerrymanOptions) {
+                    let btnY = cy;
+                    if (btnY + 45 > sy && btnY < sy + sh) {
+                        ctx.fillStyle = '#e74c3c'; roundRect(ctx, sx+20, btnY, sw-40, 45, 5, true, false);
+                        ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.font='bold 14px Arial'; ctx.fillText("[ 拦截到高权限交互指令，点击回复 ]", sx+sw/2, btnY+28); ctx.textAlign='left';
+                        addRegion(sx+20, btnY, sw-40, 45, () => { showFerrymanOptions = true; scrollY = 0; });
+                    }
+                    cy += 65;
+                } else {
+                    let options = [
+                        { id: 'A', text: "旧城书话。她聊《人间失格》，我接的话。" },
+                        { id: 'B', text: "同学介绍的。" },
+                        { id: 'C', text: "书店。她在看《人间失格》，我搭的话。" }
+                    ];
+                    for (let opt of options) {
+                        let optBx = sx + 20, optBy = cy, optBh = 50;
+                        let isClicked = ferrymanClickedOptions.has(opt.id);
+                        
+                        if (optBy + optBh > sy && optBy < sy + sh) {
+                            let isHover = !isClicked && mouseX >= optBx && mouseX <= optBx + sw - 40 && mouseY >= optBy && mouseY <= optBy + optBh;
                             
-                            if (optBy + optBh > sy && optBy < sy + sh) {
-                                let isHover = !isClicked && mouseX >= optBx && mouseX <= optBx + sw - 40 && mouseY >= optBy && mouseY <= optBy + optBh;
-                                
-                                ctx.fillStyle = isClicked ? 'rgba(100, 100, 100, 0.2)' : (isHover ? 'rgba(26, 188, 156, 0.4)' : 'rgba(26, 188, 156, 0.1)');
-                                ctx.strokeStyle = isClicked ? '#555' : '#1abc9c'; 
-                                ctx.lineWidth = 1; 
-                                roundRect(ctx, optBx, optBy, sw - 40, optBh, 6, true, true);
-                                
-                                ctx.fillStyle = isClicked ? '#777' : '#1abc9c'; ctx.font='14px Arial'; 
-                                ctx.fillText(opt.id + ". " + opt.text, optBx + 15, optBy + 30);
-                                
-                                if (!isClicked) {
-                                    addRegion(optBx, optBy, sw-40, optBh, () => {
-                                        if (opt.id === 'A') {
-                                            m.text += "\n\n【已发送】: " + opt.text; m.id = 'ferryman_q1_done';
-                                            db.whale_chat.push({ id: 'f_ok', type: 'other', sender: '摆渡人', time: '刚刚', text: '记得挺牢。明天开始，让她多讲讲她家里。' });
-                                            secondPhoneVisible = true;
-                                            scrollY = 0;
-                                        } else {
-                                            ferrymanClickedOptions.add(opt.id);
-                                            ferrymanFailedCount++;
-                                            if (ferrymanFailedCount === 1) {
-                                                db.whale_chat.push({ id: 'f_warn', type: 'other', sender: '摆渡人', time: '刚刚', text: '不对。你不是他。' });
-                                                scrollY = 0;
-                                            } else if (ferrymanFailedCount === 2) {
-                                                m.id = 'ferryman_q1_done'; 
-                                                db.whale_chat.push({ id: 'f_die1', type: 'other', sender: '摆渡人', time: '刚刚', text: '手机落到别人手里了。' });
-                                                scrollY = 0;
+                            ctx.fillStyle = isClicked ? 'rgba(100, 100, 100, 0.2)' : (isHover ? 'rgba(26, 188, 156, 0.4)' : 'rgba(26, 188, 156, 0.1)');
+                            ctx.strokeStyle = isClicked ? '#555' : '#1abc9c'; 
+                            ctx.lineWidth = 1; 
+                            roundRect(ctx, optBx, optBy, sw - 40, optBh, 6, true, true);
+                            
+                            ctx.fillStyle = isClicked ? '#777' : '#1abc9c'; ctx.font='14px Arial'; 
+                            ctx.fillText(opt.id + ". " + opt.text, optBx + 15, optBy + 30);
+                            
+                            if (!isClicked) {
+                                addRegion(optBx, optBy, sw-40, optBh, () => {
+                                    // 将玩家选择的内容作为真实的聊天气泡发送出去
+                                    db.whale_chat.push({ id: 'f_reply_' + opt.id, type: 'me', sender: '石头', time: '刚刚', text: opt.text });
+                                    
+                                    if (opt.id === 'A') {
+                                        activeQuest.id = 'ferryman_q1_done';
+                                        db.whale_chat.push({ id: 'f_ok', type: 'other', sender: '摆渡人', time: '刚刚', text: '记得挺牢。明天开始，让她多讲讲她家里。' });
+                                        secondPhoneVisible = true;
+                                        scrollY += 100; // 自动向下滚动查看新消息
+                                    } else {
+                                        ferrymanClickedOptions.add(opt.id);
+                                        ferrymanFailedCount++;
+                                        if (ferrymanFailedCount === 1) {
+                                            db.whale_chat.push({ id: 'f_warn', type: 'other', sender: '摆渡人', time: '刚刚', text: '不对。你不是他。' });
+                                            // 自动向下滚动一点，确保能看到新消息和新选项
+                                            scrollY += 100; 
+                                        } else if (ferrymanFailedCount === 2) {
+                                            activeQuest.id = 'ferryman_q1_done'; 
+                                            db.whale_chat.push({ id: 'f_die1', type: 'other', sender: '摆渡人', time: '刚刚', text: '手机落到别人手里了。' });
+                                            scrollY = maxScrollY + 100; // 滚到底部
+                                            
+                                            // Game Over 序列播放
+                                            setTimeout(() => {
+                                                db.whale_chat.push({ id: 'f_die2', type: 'other', sender: '摆渡人', time: '刚刚', text: '那就都别要了。' });
                                                 
-                                                // Game Over 序列播放
                                                 setTimeout(() => {
-                                                    db.whale_chat.push({ id: 'f_die2', type: 'other', sender: '摆渡人', time: '刚刚', text: '那就都别要了。' });
+                                                    evidenceDestroyed = true;
+                                                    currentApp = 'desktop'; // 强制踢出应用
                                                     
+                                                    // 删除失眠的鲸
+                                                    let appIdx = appsList.findIndex(a => a.id === 'whale_app');
+                                                    if (appIdx !== -1) appsList.splice(appIdx, 1);
+                                                    
+                                                    // 在桌面停留1.5秒后爆出 Game Over
                                                     setTimeout(() => {
-                                                        evidenceDestroyed = true;
-                                                        currentApp = 'desktop'; // 强制踢出应用
-                                                        
-                                                        // 删除失眠的鲸
-                                                        let appIdx = appsList.findIndex(a => a.id === 'whale_app');
-                                                        if (appIdx !== -1) appsList.splice(appIdx, 1);
-                                                        
-                                                        // 在桌面停留1.5秒后爆出 Game Over
-                                                        setTimeout(() => {
-                                                            gameState = 'GAME_OVER';
-                                                        }, 1500);
-                                                        
-                                                    }, 2500); // 留2.5秒读字
-                                                }, 2000); // 留2秒读上一句
-                                            }
+                                                        gameState = 'GAME_OVER';
+                                                    }, 1500);
+                                                    
+                                                }, 2500); 
+                                            }, 2000); 
                                         }
-                                    });
-                                }
+                                    }
+                                });
                             }
-                            cy += optBh + 15;
                         }
+                        cy += optBh + 15;
                     }
                 }
             }
@@ -1020,7 +1029,7 @@
         }
 
         function drawGalleryList(sx, sy, sw, sh) {
-            let cy = sy + 50 - scrollY;
+            let cy = sy + 60 - scrollY;
             let cols = 3; let padding = 12;
             let imgW = (sw - padding*4) / cols; let imgH = imgW;
             
@@ -1041,7 +1050,7 @@
                     } else {
                         ctx.fillStyle = '#555'; ctx.font = '24px Arial'; ctx.textAlign='center'; ctx.fillText("🖼️", bx+imgW/2, by+imgH/2+8);
                     }
-                    ctx.fillStyle = '#ccc'; ctx.font = '11px Arial'; ctx.fillText(img.title, bx+imgW/2, by + imgH + 20); ctx.textAlign='left';
+                    ctx.fillStyle = '#ccc'; ctx.font = '11px Arial'; ctx.textAlign='center'; ctx.fillText(img.title, bx+imgW/2, by + imgH + 20); ctx.textAlign='left';
                     addRegion(bx, by, imgW, imgH, () => { selectedImgId = img.id; currentApp = 'gallery_detail'; scrollY = 0; });
                 }
             }
@@ -1053,8 +1062,9 @@
             let img = db.gallery.find(i => i.id === selectedImgId);
             if (!img) return;
 
-            let bx = sx + 20, by = sy + 60, imgW = sw - 40, imgH = 260;
+            let bx = sx + 20, by = sy + 60 - scrollY, imgW = sw - 40, imgH = 260;
             
+            // 摧毁判定
             if (evidenceDestroyed && (img.id === 'img_009' || img.id === 'img_010')) {
                 ctx.fillStyle = '#1a0000'; ctx.fillRect(bx, by, imgW, imgH);
                 ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 2; ctx.strokeRect(bx, by, imgW, imgH);
@@ -1065,19 +1075,23 @@
 
             ctx.save(); ctx.beginPath(); ctx.rect(bx, by, imgW, imgH); ctx.clip();
             
-            if (img.type === 'scene_window') {
-                drawIMG001(ctx, bx, by, imgW, imgH);
-            } else if (img.type.startsWith('scene')) {
-                ctx.fillStyle = (img.type === 'scene_eat' ? '#37474f' : '#33691e');
+            if (img.type.startsWith('scene')) {
+                ctx.fillStyle = img.type === 'scene_window' ? '#5d4037' : (img.type === 'scene_eat' ? '#37474f' : '#33691e');
                 ctx.fillRect(bx, by, imgW, imgH);
                 
                 let gradient = ctx.createRadialGradient(bx+imgW*0.8, by+imgH*0.2, 10, bx+imgW*0.8, by+imgH*0.2, imgW);
-                if(img.type === 'scene_eat') { gradient.addColorStop(0, '#90a4ae'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); }
-                if(img.type === 'scene_bus') { gradient.addColorStop(0, '#fff59d'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); }
+                if(img.type === 'scene_window') { gradient.addColorStop(0, '#ff8a65'); gradient.addColorStop(1, 'rgba(0,0,0,0.6)'); } // 逆光
+                if(img.type === 'scene_eat') { gradient.addColorStop(0, '#90a4ae'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); } // 食堂
+                if(img.type === 'scene_bus') { gradient.addColorStop(0, '#fff59d'); gradient.addColorStop(1, 'rgba(0,0,0,0.7)'); } // 路灯
                 ctx.fillStyle = gradient; ctx.fillRect(bx, by, imgW, imgH);
                 
+                // 剪影
                 ctx.fillStyle = '#111'; ctx.beginPath();
-                if (img.type === 'scene_eat') {
+                if(img.type === 'scene_window') {
+                    ctx.arc(bx+imgW*0.4, by+imgH*0.5, 25, 0, Math.PI*2); 
+                    ctx.moveTo(bx+imgW*0.4-20, by+imgH*0.5+10); ctx.lineTo(bx+imgW*0.4-30, by+imgH);
+                    ctx.lineTo(bx+imgW*0.4+50, by+imgH); ctx.lineTo(bx+imgW*0.4+20, by+imgH*0.5+20);
+                } else if (img.type === 'scene_eat') {
                     ctx.arc(bx+imgW*0.5, by+imgH*0.6, 20, 0, Math.PI*2); 
                     ctx.fillRect(bx+imgW*0.5-25, by+imgH*0.6+15, 50, imgH);
                     ctx.fillStyle = '#333'; ctx.fillRect(bx, by+imgH-30, imgW, 30);
@@ -1087,19 +1101,138 @@
                 }
                 ctx.fill();
             } else if (img.type === 'blur_diary') {
-                ctx.fillStyle = '#d7ccc8'; ctx.fillRect(bx, by, imgW, imgH); 
-                ctx.font = 'bold 24px Arial'; 
-                for(let i=0; i<20; i++) {
-                    ctx.fillStyle = `rgba(50, 50, 50, 0.04)`;
-                    ctx.fillText(img.blur, bx+10 + Math.random()*20, by+50 + (i%5)*40 + Math.random()*20);
+                // 安全的模糊实现：日记本纸张底色
+                ctx.fillStyle = '#f4f1ea'; ctx.fillRect(bx, by, imgW, imgH); 
+                
+                // 绘制日记本横线
+                ctx.strokeStyle = '#d7ccc8'; ctx.lineWidth = 1;
+                for(let l=by+40; l<by+imgH; l+=30) {
+                    ctx.beginPath(); ctx.moveTo(bx+15, l); ctx.lineTo(bx+imgW-15, l); ctx.stroke();
                 }
-                ctx.fillStyle = 'rgba(180, 0, 0, 0.9)'; ctx.font = 'bold 36px Arial';
-                ctx.fillText(img.text, bx+30, by+imgH/2);
+
+                let cx = bx + 25, cy = by + 35;
+                
+                // 多段文字拆分，还原大段日记的视觉感，只让关键信息聚焦清晰
+                let segments = [];
+                if(img.id === 'img_004') {
+                    segments = [
+                        { t: "今天回家晚了……", blur: true },
+                        { t: "爸又", blur: false },
+                        { t: "无缘无故把我", blur: true },
+                        { t: "骂哭", blur: false },
+                        { t: "……躲在被子里听", blur: true },
+                        { t: "耳机", blur: false },
+                        { t: "……不想活了", blur: true }
+                    ];
+                } else if(img.id === 'img_005') {
+                    segments = [
+                        { t: "不知不觉", blur: true },
+                        { t: "转学半年", blur: false },
+                        { t: "了……还是", blur: true },
+                        { t: "没人一起吃饭", blur: false },
+                        { t: "……早就已经", blur: true },
+                        { t: "习惯了", blur: false },
+                        { t: "……", blur: true }
+                    ];
+                } else if(img.id === 'img_006') {
+                    segments = [
+                        { t: "外面一直在", blur: true },
+                        { t: "打雷", blur: false },
+                        { t: "……屋里好黑……我", blur: true },
+                        { t: "不敢睡", blur: false },
+                        { t: "……救救我……", blur: true }
+                    ];
+                }
+
+                ctx.save();
+                for (let seg of segments) {
+                    if (seg.blur) {
+                        ctx.filter = 'blur(2.5px)'; // 模糊的钢笔字
+                        ctx.font = '20px "楷体", "Kaiti", serif';
+                        ctx.fillStyle = '#546e7a';
+                    } else {
+                        ctx.filter = 'none'; // 焦点清晰的钢笔字
+                        ctx.font = 'bold 22px "楷体", "Kaiti", serif';
+                        ctx.fillStyle = '#2c3e50'; // 取消红色，使用同色系但更深的墨水色，不再突兀
+                    }
+                    
+                    let chars = seg.t.split('');
+                    for (let c of chars) {
+                        let cw = ctx.measureText(c).width;
+                        if (cx + cw > bx + imgW - 25) { 
+                            cx = bx + 25; 
+                            cy += 30; // 自动换行
+                        }
+                        ctx.fillText(c, cx, cy);
+                        cx += cw;
+                    }
+                }
+                ctx.restore();
             } else if (img.type === 'sharp_text') {
                 ctx.fillStyle = '#efebe9'; ctx.fillRect(bx, by, imgW, imgH);
                 ctx.fillStyle = '#111'; ctx.font = 'bold 16px Arial';
-                let cy = by + 40; let lines = img.text.split('\n');
+                let cy = by + 40;
+                let lines = img.text.split('\n');
                 for(let l of lines) { ctx.fillText(l, bx+15, cy); cy+=30; }
+            } else if (img.type === 'group_photo') {
+                ctx.fillStyle = '#90a4ae'; ctx.fillRect(bx, by, imgW, imgH);
+                ctx.fillStyle = '#546e7a'; // 台阶阴影
+                for(let i=0; i<4; i++) ctx.fillRect(bx, by + imgH*0.35 + i*35, imgW, 35);
+                ctx.fillStyle = '#263238'; 
+                // 绘制4排、每排10个人的剪影
+                for(let row=0; row<4; row++) {
+                    let cols = 10;
+                    let spacing = imgW / cols;
+                    let startY = by + imgH*0.35 + row*35 - 15;
+                    for(let col=0; col<cols; col++) {
+                        ctx.beginPath();
+                        let px = bx + col*spacing + spacing/2 + (row%2)*6; // 稍微错开站位
+                        ctx.arc(px, startY, 9, 0, Math.PI*2); // 头
+                        ctx.fill();
+                        ctx.fillRect(px - 10, startY + 8, 20, 25); // 身体
+                    }
+                }
+            } else if (img.type === 'friends') {
+                let grad = ctx.createLinearGradient(bx, by, bx, by+imgH);
+                grad.addColorStop(0, '#ffcc80'); grad.addColorStop(1, '#ffab91'); // 黄昏背景
+                ctx.fillStyle = grad; ctx.fillRect(bx, by, imgW, imgH);
+                
+                ctx.fillStyle = '#3e2723';
+                // 左侧人物
+                ctx.beginPath(); ctx.arc(bx + imgW*0.35, by + imgH*0.5, 28, 0, Math.PI*2); ctx.fill();
+                ctx.fillRect(bx + imgW*0.35 - 32, by + imgH*0.5 + 25, 64, imgH);
+                // 右侧人物
+                ctx.beginPath(); ctx.arc(bx + imgW*0.65, by + imgH*0.55, 26, 0, Math.PI*2); ctx.fill();
+                ctx.fillRect(bx + imgW*0.65 - 28, by + imgH*0.55 + 22, 56, imgH);
+                // 勾肩搭背的手臂
+                ctx.beginPath(); ctx.moveTo(bx + imgW*0.35, by + imgH*0.5 + 40);
+                ctx.quadraticCurveTo(bx + imgW*0.5, by + imgH*0.5 + 20, bx + imgW*0.65 + 30, by + imgH*0.55 + 45);
+                ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.strokeStyle = '#3e2723'; ctx.stroke();
+            } else if (img.type === 'mp3') {
+                ctx.fillStyle = '#8d6e63'; ctx.fillRect(bx, by, imgW, imgH); // 木质底色
+                ctx.strokeStyle = '#795548'; ctx.lineWidth = 3;
+                // 木纹肌理
+                for(let i=0; i<6; i++) {
+                    ctx.beginPath(); ctx.moveTo(bx, by + i*45); ctx.lineTo(bx+imgW, by + i*45 + (i%2==0?20:-20)); ctx.stroke();
+                }
+                
+                // MP3 播放器机身
+                let mp3X = bx + imgW/2 - 35, mp3Y = by + imgH/2 - 65, mp3W = 70, mp3H = 130;
+                ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 15;
+                ctx.fillStyle = '#f5f5f5'; roundRect(ctx, mp3X, mp3Y, mp3W, mp3H, 10, true, false);
+                ctx.shadowBlur = 0;
+                
+                // 屏幕与按键环
+                ctx.fillStyle = '#9e9e9e'; roundRect(ctx, mp3X + 8, mp3Y + 10, mp3W - 16, 45, 5, true, false); 
+                ctx.fillStyle = '#b0bec5'; ctx.fillRect(mp3X + 12, mp3Y + 15, mp3W - 24, 35); // 屏幕亮起
+                ctx.fillStyle = '#e0e0e0'; ctx.beginPath(); ctx.arc(mp3X + mp3W/2, mp3Y + 90, 22, 0, Math.PI*2); ctx.fill(); // 滚轮
+                ctx.fillStyle = '#bdbdbd'; ctx.beginPath(); ctx.arc(mp3X + mp3W/2, mp3Y + 90, 8, 0, Math.PI*2); ctx.fill(); // 确认键
+                
+                // 耳机线与耳机头
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(mp3X + mp3W/2, mp3Y); 
+                ctx.quadraticCurveTo(bx + imgW*0.9, by + 30, bx + imgW - 30, by + imgH - 20); ctx.stroke();
+                ctx.beginPath(); ctx.arc(bx + imgW - 30, by + imgH - 15, 6, 0, Math.PI*2); ctx.fillStyle='#eee'; ctx.fill();
             } else {
                 ctx.fillStyle = '#2c3e50'; ctx.fillRect(bx, by, imgW, imgH);
                 ctx.fillStyle = '#fff'; ctx.font = '16px Arial'; ctx.textAlign='center'; ctx.fillText(img.desc, bx+imgW/2, by+imgH/2); ctx.textAlign='left';
@@ -1109,10 +1242,12 @@
             ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 3; ctx.strokeRect(bx, by, imgW, imgH);
             ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 18px Arial'; ctx.fillText(img.title, bx, by + imgH + 40);
             if(img.desc) { ctx.fillStyle = '#ccc'; ctx.font = '14px Arial'; wrapText(ctx, img.desc, bx, by + imgH + 70, imgW, 20); }
+            
+            maxScrollY = Math.max(0, by + imgH + 150 + scrollY - (sy + sh));
         }
 
         function drawQQMenu(sx, sy, sw, sh) {
-            let cy = sy + 40;
+            let cy = sy + 60;
             let menus = [
                 {name: '联系人 (私聊)', cat: 'friends', icon: '👤', desc: '阿树, 念念想冬眠 等'}, 
                 {name: '群组聊天', cat: 'groups', icon: '👥', desc: 'GAME OVER电玩, 高二三班 等'},
@@ -1139,7 +1274,7 @@
 
         function drawQQList(sx, sy, sw, sh) {
             let list = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
-            let cy = sy + 50 - scrollY;
+            let cy = sy + 60 - scrollY;
             for (let item of list) {
                 let bx = sx + 10, by = cy, bh = 70;
                 if (by + bh > sy && by < sy + sh) {
