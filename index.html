@@ -777,7 +777,7 @@
             // 将短信列表倒序，让最新的（数组后添加的）排在最上面
             let displayList = [...list].reverse(); 
             
-            let cy = sy + 15 - scrollY;
+            let cy = sy + 55 - scrollY; // 【修复】统一下调，避开顶部40px的返回栏
             ctx.fillStyle = '#f39c12'; ctx.font = 'bold 16px Arial';
             ctx.fillText(smsBoxType === 'inbox' ? " 收件箱" : " 发件箱", sx + 10, cy); cy += 30;
 
@@ -877,7 +877,7 @@
         }
 
         function drawWhaleChat(sx, sy, sw, sh) {
-            let cy = sy + 40 - scrollY; 
+            let cy = sy + 60 - scrollY; // 【修复】统一下调，避开顶部40px的返回栏
             
             ctx.fillStyle = '#0a0d12'; ctx.fillRect(sx, sy, sw, sh);
             if (cy > sy - 50 && cy < sy + sh) {
@@ -1274,13 +1274,14 @@
 
         function drawQQList(sx, sy, sw, sh) {
             let list = qqCategory === 'groups' ? db.qq_group : db.qq_friends;
-            let cy = sy + 60 - scrollY;
+            let cy = sy + 60 - scrollY; 
             for (let item of list) {
                 let bx = sx + 10, by = cy, bh = 70;
                 if (by + bh > sy && by < sy + sh) {
                     let isHover = mouseX >= bx && mouseX <= bx + sw - 20 && mouseY >= by && mouseY <= by + bh;
                     ctx.fillStyle = isHover ? 'rgba(255,255,255,0.1)' : 'transparent'; ctx.fillRect(bx, by, sw - 20, bh);
                     
+                    // 头像
                     ctx.fillStyle = qqCategory === 'groups' ? '#e67e22' : '#9b59b6';
                     ctx.beginPath(); ctx.arc(bx + 35, by + 35, 22, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign='center';
@@ -1289,9 +1290,10 @@
                     ctx.textAlign='left'; ctx.fillStyle = '#00f3ff'; ctx.font = 'bold 16px Arial';
                     ctx.fillText(item.name + (item.members ? ` (${item.members}人)` : ''), bx + 70, by + 35);
                     
-                    let lastMsg = item.messages[item.messages.length-1].text.replace(/\n/g, ' ');
+                    let lastMsg = item.messages[item.messages.length-1].text;
                     ctx.fillStyle = '#aaa'; ctx.font = '12px Arial';
                     ctx.fillText(lastMsg.length > 20 ? lastMsg.substring(0,20)+"..." : lastMsg, bx + 70, by + 55);
+                    
                     ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.beginPath(); ctx.moveTo(bx, by + bh); ctx.lineTo(bx + sw - 20, by + bh); ctx.stroke();
                     
                     addRegion(bx, by, sw - 20, bh, () => { selectedQQId = item.id; currentApp = 'qq_chat'; scrollY = 0; });
@@ -1315,20 +1317,50 @@
                         for(let i=0; i<lines.length; i++) ctx.fillText(lines[i], sx + sw/2, cy + i*16);
                         ctx.textAlign = 'left';
                     }
-                    cy += 40;
+                    // 动态计算系统消息/时间消息的高度，消除固定的过大间隙
+                    cy += 20 + m.text.split('\n').length * 16;
                 } else {
                     let isMe = m.type === 'me';
-                    ctx.font = '14px Arial';
-                    let textWidth = ctx.measureText(m.text).width;
+                    // 统一使用14px字体进行严格测量
+                    ctx.font = '14px Arial'; 
+                    
+                    let fakeP = m.text.split('\n');
+                    let lineCount = 0;
+                    let maxTextW = 0;
                     let maxBubbleW = sw * 0.6;
-                    let bubbleW = Math.min(textWidth + 20, maxBubbleW);
-                    let bubbleH = 30 + Math.floor(textWidth / maxBubbleW) * 20;
+                    
+                    // 逐字排版测量，计算真实的折行
+                    for (let p of fakeP) {
+                        if (p === '') { lineCount++; continue; }
+                        let words = p.split('');
+                        let line = '';
+                        for (let n = 0; n < words.length; n++) {
+                            let testLine = line + words[n];
+                            let tw = ctx.measureText(testLine).width;
+                            if (tw > maxBubbleW && n > 0) {
+                                lineCount++;
+                                maxTextW = Math.max(maxTextW, ctx.measureText(line).width);
+                                line = words[n];
+                            } else {
+                                line = testLine;
+                            }
+                        }
+                        if (line !== '') {
+                            lineCount++;
+                            maxTextW = Math.max(maxTextW, ctx.measureText(line).width);
+                        }
+                    }
+
+                    // 统一气泡高度计算：基础留白(上下各8px) + 行高(每行20px)
+                    let bubbleW = maxTextW + 24; 
+                    let bubbleH = 16 + lineCount * 20; 
                     
                     if (cy + bubbleH + 30 > sy && cy < sy + sh) {
                         let bx = isMe ? sx + sw - bubbleW - 55 : sx + 55;
                         
+                        // 头像
                         let avX = isMe ? sx + sw - 30 : sx + 30;
-                        ctx.fillStyle = isMe ? '#95a5a6' : '#8e44ad';
+                        ctx.fillStyle = isMe ? '#2980b9' : '#8e44ad';
                         if(m.sender==='念念想冬眠') ctx.fillStyle = '#74b9ff';
                         if(m.sender==='阿树') ctx.fillStyle = '#e67e22';
                         ctx.beginPath(); ctx.arc(avX, cy + 15, 18, 0, Math.PI*2); ctx.fill();
@@ -1337,15 +1369,19 @@
                         if(isMe) avIcon = '🪨';
                         ctx.fillText(avIcon, avX, cy+22);
                         
+                        // 名字外置
                         ctx.fillStyle = '#aaa'; ctx.font = '12px Arial'; ctx.textAlign = isMe ? 'right' : 'left';
                         ctx.fillText(m.sender, isMe ? sx + sw - 60 : sx + 60, cy);
                         
+                        // 气泡绘制
                         ctx.fillStyle = isMe ? '#e1f5fe' : '#ffffff'; ctx.textAlign = 'left';
                         roundRect(ctx, bx, cy + 5, bubbleW, bubbleH, 8, true, false);
-                        ctx.fillStyle = '#333'; ctx.font = '13px Arial';
-                        wrapText(ctx, m.text, bx + 10, cy + 22, bubbleW - 20, 18);
+                        
+                        ctx.fillStyle = '#333'; ctx.font = '14px Arial';
+                        // 文字基线偏移：气泡顶端是 cy+5，加上22px的文字基线留白，恰好绝对垂直居中！
+                        wrapText(ctx, m.text, bx + 12, cy + 27, maxBubbleW, 20);
                     }
-                    cy += bubbleH + 30;
+                    cy += bubbleH + 25; 
                 }
             }
             maxScrollY = Math.max(0, cy + scrollY - (sy + sh) + 50);
