@@ -1,5 +1,6 @@
 // js/main.js - Game entry point
 import { state } from './state.js';
+import { initAudio } from './ui/audio-manager.js';
 import { drawStartScreen } from './screens/start-screen.js';
 import { drawPasswordScreen } from './screens/password-screen.js';
 import { drawAshuPhone } from './screens/ashu-phone.js';
@@ -69,6 +70,7 @@ canvas.addEventListener('mousemove', e => {
 });
 
 canvas.addEventListener('mousedown', e => {
+    initAudio(); // Unlock audio context on user interaction
     for (let i = state.clickRegions.length - 1; i >= 0; i--) {
         let r = state.clickRegions[i];
         if (state.mouseX >= r.x && state.mouseX <= r.x + r.w &&

@@ -1,8 +1,17 @@
 import { state } from '../state.js';
 import { roundRect } from '../ui/canvas-utils.js';
+import { playGameOverSound } from '../ui/audio-manager.js';
+
+let playedGameOverSFX = false;
 
 export function drawGameOverScreen(ctx, canvas) {
     let w = canvas.width, h = canvas.height;
+
+    if (!playedGameOverSFX) {
+        playGameOverSound();
+        playedGameOverSFX = true;
+    }
+
     let bgGrad = ctx.createLinearGradient(0, 0, 0, h);
     bgGrad.addColorStop(0, 'rgba(30, 0, 0, 0.95)'); 
     bgGrad.addColorStop(1, 'rgba(10, 0, 0, 1)');
@@ -35,6 +44,7 @@ export function drawGameOverScreen(ctx, canvas) {
     ctx.fillText("重新开始 (Restart)", w/2, by + 35);
     
     state.addRegion(bx, by, bw, bh, () => {
+        playedGameOverSFX = false; // Reset flag for next game over
         state.reset();
     });
     

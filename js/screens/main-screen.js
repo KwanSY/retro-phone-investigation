@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { roundRect, drawDisconnectButton } from '../ui/canvas-utils.js';
 import { drawNokia5300Closed } from '../ui/nokia-renderer.js';
 import { renderApp, goBack } from '../router.js';
+import { playNotificationSound } from '../ui/audio-manager.js';
 
 export function drawMainScreen(ctx, canvas) {
     let w = canvas.width, h = canvas.height;
@@ -119,5 +120,6 @@ function checkFerrymanEvent() {
         state.ferrymanTriggered = true;
         state.whaleChat.push({ id: 'ferryman_q1', type: 'other', sender: '摆渡人', time: '刚刚', text: '你们是怎么认识的。' });
         state.autoScrollWhale = true;
+        playNotificationSound();
     }
 }

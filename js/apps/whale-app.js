@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { roundRect, wrapText } from '../ui/canvas-utils.js';
+import { playNotificationSound, playWrongAnswerSound, playGlitchDestroySound } from '../ui/audio-manager.js';
 
 function drawIMG001(ctx, bx, by, imgW, imgH) {
     ctx.save(); ctx.beginPath(); ctx.rect(bx, by, imgW, imgH); ctx.clip();
@@ -129,20 +130,24 @@ export function drawWhaleChat(ctx, sx, sy, sw, sh) {
                                 state.whaleChat.push({ id: 'f_ok', type: 'other', sender: '摆渡人', time: '刚刚', text: '记得挺牢。明天开始，让她多讲讲她家里。' });
                                 state.secondPhoneVisible = true;
                                 state.autoScrollWhale = true;
+                                playNotificationSound();
                             } else {
                                 state.ferrymanClickedOptions.add(opt.id);
                                 state.ferrymanFailedCount++;
                                 if (state.ferrymanFailedCount === 1) {
                                     state.whaleChat.push({ id: 'f_warn', type: 'other', sender: '摆渡人', time: '刚刚', text: '不对。你不是他。' });
                                     state.autoScrollWhale = true;
+                                    playWrongAnswerSound();
                                 } else if (state.ferrymanFailedCount === 2) {
                                     activeQuest.id = 'ferryman_q1_done'; 
                                     state.whaleChat.push({ id: 'f_die1', type: 'other', sender: '摆渡人', time: '刚刚', text: '手机落到别人手里了。' });
                                     state.autoScrollWhale = true;
+                                    playGlitchDestroySound();
                                     
                                     setTimeout(() => {
                                         state.whaleChat.push({ id: 'f_die2', type: 'other', sender: '摆渡人', time: '刚刚', text: '那就都别要了。' });
                                         state.autoScrollWhale = true;
+                                        playGlitchDestroySound();
                                         
                                         setTimeout(() => {
                                             state.evidenceDestroyed = true;
