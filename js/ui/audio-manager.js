@@ -30,30 +30,44 @@ export function playNotificationSound() {
 
     const now = ctx.currentTime;
     
-    // Tone 1: E6 (1318.5 Hz)
+    // Clear Nokia "嘀—嘀" SMS Chime
+    // Beep 1 ("嘀"): E6 (1318.5 Hz)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(1318.5, now);
-    gain1.gain.setValueAtTime(0.15, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    gain1.gain.setValueAtTime(0.35, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
     osc1.start(now);
-    osc1.stop(now + 0.15);
+    osc1.stop(now + 0.09);
 
-    // Tone 2: A6 (1760 Hz)
+    // Beep 2 ("嘀"): E6 (1318.5 Hz)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(1760, now + 0.08);
-    gain2.gain.setValueAtTime(0.2, now + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    osc2.frequency.setValueAtTime(1318.5, now + 0.13);
+    gain2.gain.setValueAtTime(0.35, now + 0.13);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
-    osc2.start(now + 0.08);
-    osc2.stop(now + 0.3);
+    osc2.start(now + 0.13);
+    osc2.stop(now + 0.22);
+
+    // High resolution tail: A6 (1760 Hz)
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(1760, now + 0.26);
+    gain3.gain.setValueAtTime(0.4, now + 0.26);
+    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+    osc3.connect(gain3);
+    gain3.connect(ctx.destination);
+    osc3.start(now + 0.26);
+    osc3.stop(now + 0.42);
 }
+
 
 /**
  * Wrong Answer Warning Sound (Descending error buzz)
@@ -382,4 +396,65 @@ export function playButtonClickSound() {
     osc.start(now);
     osc.stop(now + 0.08);
 }
+
+/**
+ * CRT Degauss / Old Monitor Power-On Sound ("嗡" heavy degaussing hum)
+ */
+export function playCrtBootSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const dur = 1.2;
+
+    // 1. Heavy Degaussing Thud (Coil punch: 70Hz -> 25Hz)
+    const degauss = ctx.createOscillator();
+    const degaussGain = ctx.createGain();
+    degauss.type = 'sine';
+    degauss.frequency.setValueAtTime(80, now);
+    degauss.frequency.exponentialRampToValueAtTime(25, now + 0.4);
+
+    degaussGain.gain.setValueAtTime(0.001, now);
+    degaussGain.gain.linearRampToValueAtTime(0.35, now + 0.04);
+    degaussGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    degauss.connect(degaussGain);
+    degaussGain.connect(ctx.destination);
+    degauss.start(now);
+    degauss.stop(now + 0.5);
+
+    // 2. Power Capacitor & Coil Hum ("嗡" 100Hz -> 50Hz)
+    const hum = ctx.createOscillator();
+    const humGain = ctx.createGain();
+    hum.type = 'triangle';
+    hum.frequency.setValueAtTime(110, now + 0.05);
+    hum.frequency.exponentialRampToValueAtTime(45, now + dur);
+
+    humGain.gain.setValueAtTime(0.001, now + 0.05);
+    humGain.gain.linearRampToValueAtTime(0.2, now + 0.15);
+    humGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+    hum.connect(humGain);
+    humGain.connect(ctx.destination);
+    hum.start(now + 0.05);
+    hum.stop(now + dur);
+
+    // 3. High Frequency Flyback Transformer Whine (~15.6kHz CRT sync tone)
+    const whine = ctx.createOscillator();
+    const whineGain = ctx.createGain();
+    whine.type = 'sine';
+    whine.frequency.setValueAtTime(14500, now);
+    whine.frequency.linearRampToValueAtTime(15625, now + 0.4);
+
+    whineGain.gain.setValueAtTime(0.001, now);
+    whineGain.gain.linearRampToValueAtTime(0.04, now + 0.1);
+    whineGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+    whine.connect(whineGain);
+    whineGain.connect(ctx.destination);
+    whine.start(now);
+    whine.stop(now + 0.8);
+}
+
+
 

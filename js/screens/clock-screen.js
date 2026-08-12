@@ -1,15 +1,17 @@
-// js/screens/clock-screen.js - Clock transition + case notification cutscene
+// js/screens/clock-screen.js - Clock transition + Case notification cutscene (Windows XP Theme)
 import { state } from '../state.js';
-import { roundRect, wrapText } from '../ui/canvas-utils.js';
-import { playNotificationAlertSound, playButtonClickSound } from '../ui/audio-manager.js';
+import { wrapText } from '../ui/canvas-utils.js';
+import { playNotificationAlertSound, playButtonClickSound, playNotificationSound, playCrtBootSound } from '../ui/audio-manager.js';
+import { drawXPDesktop, drawXPWindow, drawXPButton } from '../ui/xp-theme.js';
 
 // --- Phase constants ---
 const PHASE = {
-    CLOCK:        'CLOCK',
-    NOTIFICATION: 'NOTIFICATION',
+    CLOCK:             'CLOCK',
+    NOTIFICATION:      'NOTIFICATION',
+    SHUTDOWN_CUTSCENE: 'SHUTDOWN_CUTSCENE',
 };
 
-// --- Clock sequence: entries displayed in order ---
+// --- Clock sequence entries ---
 const CLOCK_ENTRIES = [
     { date: '2010.06.09', time: '23:59:56' },
     { date: '2010.06.09', time: '23:59:57' },
@@ -19,11 +21,10 @@ const CLOCK_ENTRIES = [
 ];
 
 const TICK_DURATION = 1000;
-const MIDNIGHT_HOLD_MS = 1000;
-const JUMP_HOLD_MS = 1000;
+const WHITE_DAYBREAK_DURATION = 2000; // 2 seconds hold on White Screen
 
 // --- Notification text ---
-const NOTIF_TITLE = '【案件通报】';
+const NOTIF_TITLE = '【 案 件 通 报 】';
 const NOTIF_BODY =
     '2010年6月10日 06:47，接群众报警：城东区泗水北路旧纺织厂宿舍3号楼下发现一具女尸。\n' +
     '\n' +
@@ -34,7 +35,7 @@ const NOTIF_BODY =
     '请原接警值班民警出现场，配合调查。';
 const NOTIF_FOOTER = '指挥中心  2010-06-10';
 
-// --- Internal state ---
+// --- Module-local state ---
 let clockState = null;
 
 function resetClockState() {
@@ -42,13 +43,12 @@ function resetClockState() {
         phase: PHASE.CLOCK,
         phaseStart: 0,
         initialized: false,
-        playedAlertSound: false,
+        cutsceneStart: 0,
+        playedSmsSound: false,
+        notifCrtBooted: false,
     };
 }
 
-// =====================================================================
-// Main draw function
-// =====================================================================
 export function drawClockScreen(ctx, canvas) {
     let w = canvas.width, h = canvas.height;
     if (w === 0 || h === 0) return;
@@ -61,10 +61,6 @@ export function drawClockScreen(ctx, canvas) {
         clockState.initialized = true;
     }
 
-    // Black background every frame
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, w, h);
-
     let elapsed = now - clockState.phaseStart;
 
     if (clockState.phase === PHASE.CLOCK) {
@@ -76,157 +72,286 @@ export function drawClockScreen(ctx, canvas) {
         drawNotificationPhase(ctx, w, h, now, elapsed);
         return;
     }
+
+    if (clockState.phase === PHASE.SHUTDOWN_CUTSCENE) {
+        drawShutdownCutscene(ctx, w, h, now);
+        return;
+    }
 }
 
 // =====================================================================
-// Phase 1: CLOCK
+// Phase 1: CLOCK (Standby monitor mode -> White Screen Daybreak)
 // =====================================================================
 function drawClockPhase(ctx, w, h, now, elapsed) {
     let totalTickTime = CLOCK_ENTRIES.length * TICK_DURATION; // 5s for :56 to 00:00:00
-    let totalClockDuration = totalTickTime + JUMP_HOLD_MS;    // 5s + 1s hold on 08:00:00 = 6s total
+    let totalClockDuration = totalTickTime + WHITE_DAYBREAK_DURATION; // 5s + 2s white screen = 7s total
 
-    let dateStr, timeStr;
     if (elapsed < totalTickTime) {
+        // --- Standby Pitch Black Screen with Digital Clock ---
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, w, h);
+
         let idx = Math.min(CLOCK_ENTRIES.length - 1, Math.floor(elapsed / TICK_DURATION));
-        dateStr = CLOCK_ENTRIES[idx].date;
-        timeStr = CLOCK_ENTRIES[idx].time;
+        let dateStr = CLOCK_ENTRIES[idx].date;
+        let timeStr = CLOCK_ENTRIES[idx].time;
+
+        let colonVisible = Math.floor(now / 500) % 2 === 0;
+        let displayTime = colonVisible ? timeStr : timeStr.replace(/:/g, ' ');
+        let displayStr = `${dateStr}  ${displayTime}`;
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '48px "Courier New", monospace';
+
+        ctx.shadowColor = '#66aacc';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#66aacc';
+        ctx.fillText(displayStr, w / 2, h / 2);
+
+        ctx.shadowBlur = 8;
+        ctx.fillText(displayStr, w / 2, h / 2);
+
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
+        ctx.restore();
+
+        drawScanlines(ctx, w, h);
     } else {
-        dateStr = '2010.06.10';
-        timeStr = '08:00:00';
+        // --- Daybreak White Screen (2 seconds) ---
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+
+        let dateStr = '2010.06.10';
+        let timeStr = '08:00:00';
+        let colonVisible = Math.floor(now / 500) % 2 === 0;
+        let displayTime = colonVisible ? timeStr : timeStr.replace(/:/g, ' ');
+        let displayStr = `${dateStr}  ${displayTime}`;
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 48px "Courier New", monospace';
+        ctx.fillStyle = '#333333';
+        ctx.fillText(displayStr, w / 2, h / 2);
+        ctx.restore();
     }
 
-    let colonVisible = Math.floor(now / 500) % 2 === 0;
-    let displayTime = colonVisible ? timeStr : timeStr.replace(/:/g, ' ');
-    let displayStr = `${dateStr}  ${displayTime}`;
-
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = '48px "Courier New", monospace';
-
-    ctx.shadowColor = '#66aacc';
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = '#66aacc';
-    ctx.fillText(displayStr, w / 2, h / 2);
-
-    ctx.shadowBlur = 8;
-    ctx.fillText(displayStr, w / 2, h / 2);
-
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = 'transparent';
-    ctx.restore();
-
-    drawScanlines(ctx, w, h);
-
+    // Transition to Notification Phase
     if (elapsed >= totalClockDuration) {
         clockState.phase = PHASE.NOTIFICATION;
         clockState.phaseStart = performance.now();
-        playNotificationAlertSound();
+        clockState.notifCrtBooted = false;
     }
 }
 
 // =====================================================================
-// Phase 2: CASE_NOTIFICATION
+// Phase 2: CASE NOTIFICATION (Windows XP Window on XP Desktop + CRT Boot)
 // =====================================================================
 function drawNotificationPhase(ctx, w, h, now, elapsed) {
-    let opacity = Math.min(1, elapsed / 500);
+    if (!clockState.notifCrtBooted) {
+        playCrtBootSound();
+        playNotificationAlertSound();
+        clockState.notifCrtBooted = true;
+    }
 
-    ctx.save();
-    ctx.globalAlpha = opacity;
+    // 1. Draw XP Desktop Wallpaper + Taskbar
+    drawXPDesktop(ctx, w, h);
 
-    let panelW = 660;
-    let panelH = 500;
-    let panelX = (w - panelW) / 2;
-    let panelY = (h - panelH) / 2;
-    let padding = 32;
+    // 2. Draw Windows XP Case Notification Dialog Window
+    let winW = 620, winH = 480;
+    let winX = (w - winW) / 2;
+    let winY = (h - winH) / 2 - 10;
 
-    // Panel background
-    ctx.fillStyle = 'rgba(20, 10, 10, 0.95)';
-    ctx.strokeStyle = '#cc4444';
-    ctx.lineWidth = 2;
-    roundRect(ctx, panelX, panelY, panelW, panelH, 12, true, true);
+    let body = drawXPWindow(ctx, winX, winY, winW, winH, '系统通知 - [ 案件通报 ]', '📢');
+    let bx = body.x, by = body.y, bw = body.w;
 
-    // Title
-    let contentX = panelX + padding;
-    let contentY = panelY + padding + 16;
-    let contentMaxW = panelW - padding * 2;
+    let padding = 25;
+    let contentX = bx + padding;
+    let contentY = by + 20;
+    let contentMaxW = bw - padding * 2;
 
+    // Notification Title
     ctx.textAlign = 'center';
-    ctx.font = 'bold 22px "Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillStyle = '#cc4444';
-    ctx.fillText(NOTIF_TITLE, w / 2, contentY);
+    ctx.font = 'bold 18px "Microsoft YaHei", "SimHei", sans-serif';
+    ctx.fillStyle = '#cc1111';
+    ctx.fillText(NOTIF_TITLE, bx + bw / 2, contentY);
 
     // Body text
-    let bodyY = contentY + 36;
+    let bodyY = contentY + 30;
     ctx.textAlign = 'left';
-    ctx.font = '15px "Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillStyle = '#cccccc';
+    ctx.font = '14px "Microsoft YaHei", "SimSun", sans-serif';
+    ctx.fillStyle = '#222222';
 
-    let bodyHeight = wrapText(ctx, NOTIF_BODY, contentX, bodyY, contentMaxW, 25);
+    let bodyHeight = wrapText(ctx, NOTIF_BODY, contentX, bodyY, contentMaxW, 23);
 
     // Footer
-    let footerY = bodyY + bodyHeight + 15;
+    let footerY = bodyY + bodyHeight + 12;
     ctx.textAlign = 'right';
-    ctx.font = '15px "Microsoft YaHei", "PingFang SC", sans-serif';
-    ctx.fillStyle = '#aaaaaa';
-    ctx.fillText(NOTIF_FOOTER, panelX + panelW - padding, footerY);
+    ctx.font = '13px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = '#555555';
+    ctx.fillText(NOTIF_FOOTER, bx + bw - padding, footerY);
 
-    // --- 关联警情 & 定性 (displays after 2s / 2000ms) ---
-    if (elapsed >= 2000) {
-        let metaY = footerY + 30;
+    // --- 关联警情 & 定性 (System Log fade-in at 3s / 3000ms) ---
+    if (elapsed >= 3000) {
+        let metaAlpha = Math.min(1, (elapsed - 3000) / 400);
 
-        // Separator line
-        ctx.strokeStyle = 'rgba(204, 68, 68, 0.3)';
+        ctx.save();
+        ctx.globalAlpha = metaAlpha;
+
+        let lineY = footerY + 16;
+        let metaY = lineY + 22; // padded spacing below line
+
+        // Inset separator line
+        ctx.strokeStyle = '#d0ccb8';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(contentX, metaY - 12);
-        ctx.lineTo(panelX + panelW - padding, metaY - 12);
+        ctx.moveTo(contentX, lineY);
+        ctx.lineTo(bx + bw - padding, lineY);
         ctx.stroke();
 
         ctx.textAlign = 'left';
-        ctx.font = '14px "Microsoft YaHei", "PingFang SC", sans-serif';
-        ctx.fillStyle = '#d4a359';
+        ctx.font = '13px "Microsoft YaHei", sans-serif';
+        ctx.fillStyle = '#8b5a00';
 
-        ctx.fillText('关联警情：2010年6月9日 23:52 · 110呼入 · 通话47秒', contentX, metaY + 6);
+        ctx.fillText('关联警情：2010年6月9日 23:52 · 110呼入 · 通话47秒', contentX, metaY);
         let categoryStr = state.reportCategory || '咨询类';
         let resultStr = state.reportResult || '无实质警情';
-        ctx.fillText(`定性：${categoryStr}，${resultStr}。`, contentX, metaY + 28);
+        ctx.fillText(`定性：${categoryStr}，${resultStr}。`, contentX, metaY + 22);
+
+        ctx.restore();
     }
 
-    // --- 【出现场】 button (displays after 3s / 3000ms) ---
-    if (elapsed >= 3000) {
-        let btnW = 160;
-        let btnH = 42;
-        let btnX = (w - btnW) / 2;
-        let btnY = panelY + panelH - 60;
+    // --- 【出 现 场】 XP Button (displays after 4s / 4000ms, 1s after log fades in) ---
+    if (elapsed >= 4000) {
+        let btnW = 120;
+        let btnH = 32;
+        let btnX = bx + bw / 2 - btnW / 2;
+        let btnY = by + body.h - 45;
 
         let isHover = state.mouseX >= btnX && state.mouseX <= btnX + btnW &&
                       state.mouseY >= btnY && state.mouseY <= btnY + btnH;
 
-        ctx.fillStyle = isHover ? '#243a52' : '#162333';
-        ctx.strokeStyle = isHover ? '#66b2ff' : '#4a9eff';
-        ctx.lineWidth = 1.5;
-        roundRect(ctx, btnX, btnY, btnW, btnH, 6, true, true);
+        drawXPButton(ctx, btnX, btnY, btnW, btnH, '出 现 场', true, true, isHover);
 
-        ctx.font = 'bold 17px "Microsoft YaHei", "PingFang SC", sans-serif';
-        ctx.fillStyle = isHover ? '#ffffff' : '#66b2ff';
-        ctx.textAlign = 'center';
-        ctx.fillText('出 现 场', w / 2, btnY + 26);
-        ctx.textAlign = 'left';
-
-        // Click handler
+        // Click handler to trigger Shutdown Cutscene
         state.addRegion(btnX, btnY, btnW, btnH, () => {
             playButtonClickSound();
-            clockState = null;
-            state.screen = 'START_SCREEN';
+            clockState.phase = PHASE.SHUTDOWN_CUTSCENE;
+            clockState.cutsceneStart = performance.now();
+            clockState.playedSmsSound = false;
         });
     }
+
+    // --- CRT Opening Expansion Overlay (Center Point -> Horizontal -> Vertical) ---
+    if (elapsed < 1000) {
+        ctx.save();
+        if (elapsed < 350) {
+            // Pitch black with horizontal expanding center line
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, w, h);
+
+            let progress = elapsed / 350;
+            let lineW = w * progress;
+            let startX = (w - lineW) / 2;
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowColor = '#66aacc';
+            ctx.shadowBlur = 18;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(startX, h / 2);
+            ctx.lineTo(startX + lineW, h / 2);
+            ctx.stroke();
+        } else {
+            // Vertical opening curtain
+            let progress = (elapsed - 350) / 650;
+            let openH = (h / 2) * progress;
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, w, h / 2 - openH);
+            ctx.fillRect(0, h / 2 + openH, w, h / 2 - openH);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.shadowColor = '#66aacc';
+            ctx.shadowBlur = 12;
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            ctx.moveTo(0, h / 2 - openH);
+            ctx.lineTo(w, h / 2 - openH);
+            ctx.moveTo(0, h / 2 + openH);
+            ctx.lineTo(w, h / 2 + openH);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
+// =====================================================================
+// Phase 3: SHUTDOWN CUTSCENE & GAME TITLE CARD
+// =====================================================================
+function drawShutdownCutscene(ctx, w, h, now) {
+    let elapsed = now - clockState.cutsceneStart;
+
+    // 0 - 600ms: Shutdown fade to black (monitor power off)
+    // 600ms: Play Nokia SMS chime ("嘀—嘀")
+    // 600ms - 5600ms: Title card on pitch black (5 seconds hold)
+    // 5600ms - 6600ms: Fade out to black (1 second)
+
+    // Pitch black screen
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, w, h);
+
+    if (elapsed < 600) {
+        // Monitor turning off fade
+        let dim = elapsed / 600;
+        ctx.fillStyle = `rgba(0, 0, 0, ${dim})`;
+        ctx.fillRect(0, 0, w, h);
+        return;
+    }
+
+    // Play Nokia SMS Sound ONCE right at 600ms when screen is fully black
+    if (!clockState.playedSmsSound) {
+        playNotificationSound();
+        clockState.playedSmsSound = true;
+    }
+
+    let alpha = 1;
+    if (elapsed >= 5600) {
+        alpha = Math.max(0, 1 - (elapsed - 5600) / 1000);
+    }
+
+    if (elapsed >= 6600) {
+        clockState = null;
+        state.screen = 'START_SCREEN';
+        return;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Large Game Title
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 42px "Microsoft YaHei", "SimHei", sans-serif';
+    ctx.fillStyle = '#ffffff';
+
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+    ctx.shadowBlur = 12;
+    ctx.fillText('最后一条信息', w / 2, h / 2 - 20);
+    ctx.shadowBlur = 0;
+
+    // Subtitle
+    ctx.font = '15px "Courier New", "SimSun", monospace';
+    ctx.fillStyle = '#888888';
+    ctx.fillText('记录编号 110-20100609-0047 · 已归档', w / 2, h / 2 + 35);
 
     ctx.restore();
 }
 
 // =====================================================================
-// Scanline overlay effect
+// Scanline overlay helper
 // =====================================================================
 function drawScanlines(ctx, w, h) {
     ctx.save();
@@ -240,4 +365,3 @@ function drawScanlines(ctx, w, h) {
     }
     ctx.restore();
 }
-
