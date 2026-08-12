@@ -6,7 +6,7 @@ class GameState {
     }
 
     reset() {
-        this.screen = 'START_SCREEN';
+        this.screen = this.introPlayed ? 'START_SCREEN' : 'INTRO_CALL';
         this.currentApp = 'desktop';
         this.mouseX = 0;
         this.mouseY = 0;
@@ -34,6 +34,10 @@ class GameState {
         this.selectedQQId = null;
         this.whaleChat = getInitialWhaleChat();
         this.appsList = getInitialAppsList();
+        this.reportCategory = '咨询类';
+        this.reportResult = '无实质警情';
+        // introPlayed is set once by intro-screen and persists across resets
+        if (this.introPlayed === undefined) this.introPlayed = false;
     }
 
     addRegion(x, y, w, h, onClick) {

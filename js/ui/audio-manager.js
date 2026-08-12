@@ -162,3 +162,224 @@ export function playGameOverSound() {
         chord.stop(now + 1.0);
     });
 }
+
+/**
+ * Phone Ring Sound (Old-style landline dual-tone ring)
+ * Two sine oscillators at 440Hz + 480Hz, 2 ring bursts
+ * Returns total duration in ms so caller can time the sequence
+ */
+export function playPhoneRingSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return 5000;
+
+    const now = ctx.currentTime;
+    const ringOn = 1.0;   // each ring burst duration (seconds)
+    const ringOff = 1.5;  // silence between bursts
+    const ringCount = 2;
+    const totalDuration = ringCount * ringOn + (ringCount - 1) * ringOff + 0.5;
+
+    for (let r = 0; r < ringCount; r++) {
+        let tStart = now + r * (ringOn + ringOff);
+
+        // Dual-tone: 440Hz + 480Hz (standard US ring cadence)
+        [440, 480].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, tStart);
+
+            // Ring envelope: quick attack, sustain, quick release
+            gain.gain.setValueAtTime(0.001, tStart);
+            gain.gain.linearRampToValueAtTime(0.12, tStart + 0.02);
+            gain.gain.setValueAtTime(0.12, tStart + ringOn - 0.02);
+            gain.gain.linearRampToValueAtTime(0.001, tStart + ringOn);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(tStart);
+            osc.stop(tStart + ringOn);
+        });
+    }
+
+    return totalDuration * 1000;
+}
+
+/**
+ * Phone Pickup Sound (Short click/clunk)
+ * Quick noise burst ~50ms at low volume
+ */
+export function playPhonePickupSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const duration = 0.05;
+
+    // Generate white noise buffer
+    const bufferSize = Math.ceil(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    // Low-pass filter for a thuddy click
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, now);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + duration);
+}
+
+/**
+ * Phone Hangup Sound (Disconnect click + brief dial tone)
+ * Short noise click (30ms) followed by a 480Hz sine tone (200ms) that fades out
+ * Total duration ~300ms
+ */
+export function playPhoneHangupSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    // --- Click: 30ms noise burst (slightly brighter than pickup) ---
+    const clickDuration = 0.03;
+    const bufferSize = Math.ceil(ctx.sampleRate * clickDuration);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0.18, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + clickDuration);
+
+    const clickFilter = ctx.createBiquadFilter();
+    clickFilter.type = 'lowpass';
+    clickFilter.frequency.setValueAtTime(1200, now);
+
+    noise.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + clickDuration);
+
+    // --- Disconnect tone: 480Hz sine, 200ms, fading out ---
+    const toneStart = now + 0.05;
+    const toneDuration = 0.2;
+
+    const osc = ctx.createOscillator();
+    const toneGain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(480, toneStart);
+
+    toneGain.gain.setValueAtTime(0.14, toneStart);
+    toneGain.gain.exponentialRampToValueAtTime(0.001, toneStart + toneDuration);
+
+    osc.connect(toneGain);
+    toneGain.connect(ctx.destination);
+    osc.start(toneStart);
+    osc.stop(toneStart + toneDuration);
+}
+
+/**
+ * Submit Form Sound (Low thud + confirmation tone)
+ */
+export function playSubmitSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+
+    // Low thud
+    const bass = ctx.createOscillator();
+    const bassGain = ctx.createGain();
+    bass.type = 'sine';
+    bass.frequency.setValueAtTime(80, now);
+    bassGain.gain.setValueAtTime(0.2, now);
+    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    bass.connect(bassGain);
+    bassGain.connect(ctx.destination);
+    bass.start(now);
+    bass.stop(now + 0.1);
+
+    // Confirmation tone
+    const tone = ctx.createOscillator();
+    const toneGain = ctx.createGain();
+    tone.type = 'sine';
+    tone.frequency.setValueAtTime(660, now + 0.05);
+    toneGain.gain.setValueAtTime(0.15, now + 0.05);
+    toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    tone.connect(toneGain);
+    toneGain.connect(ctx.destination);
+    tone.start(now + 0.05);
+    tone.stop(now + 0.2);
+}
+
+/**
+ * Case Notification Sound (Ascending alert chime)
+ */
+export function playNotificationAlertSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const tones = [
+        { freq: 523.25, start: 0.0, dur: 0.15 },
+        { freq: 659.25, start: 0.12, dur: 0.15 },
+        { freq: 783.99, start: 0.24, dur: 0.25 },
+    ];
+
+    tones.forEach(t => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(t.freq, now + t.start);
+
+        gain.gain.setValueAtTime(0.12, now + t.start);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + t.start + t.dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + t.start);
+        osc.stop(now + t.start + t.dur);
+    });
+}
+
+/**
+ * General Button Click Sound
+ */
+export function playButtonClickSound() {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now);
+
+    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.08);
+}
+

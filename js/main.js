@@ -1,9 +1,12 @@
 // js/main.js - Game entry point
 import { state } from './state.js';
 import { initAudio } from './ui/audio-manager.js';
+import { drawIntroScreen } from './screens/intro-screen.js';
 import { drawStartScreen } from './screens/start-screen.js';
 import { drawPasswordScreen } from './screens/password-screen.js';
+import { drawPoliceReportScreen } from './screens/police-report-screen.js';
 import { drawAshuPhone } from './screens/ashu-phone.js';
+import { drawClockScreen } from './screens/clock-screen.js';
 import { drawGameOverScreen } from './screens/game-over-screen.js';
 import { drawMainScreen } from './screens/main-screen.js';
 
@@ -46,7 +49,10 @@ function draw() {
 
     const vCanvas = { width: DESIGN_W, height: DESIGN_H };
 
-    if (state.screen === 'START_SCREEN')       drawStartScreen(ctx, vCanvas);
+    if (state.screen === 'INTRO_CALL')         drawIntroScreen(ctx, vCanvas);
+    else if (state.screen === 'START_SCREEN')   drawStartScreen(ctx, vCanvas);
+    else if (state.screen === 'POLICE_REPORT')  drawPoliceReportScreen(ctx, vCanvas);
+    else if (state.screen === 'CLOCK_TRANSITION') drawClockScreen(ctx, vCanvas);
     else if (state.screen === 'PASSWORD_INPUT') drawPasswordScreen(ctx, vCanvas);
     else if (state.screen === 'ASHU_PHONE')     drawAshuPhone(ctx, vCanvas);
     else if (state.screen === 'GAME_OVER')      drawGameOverScreen(ctx, vCanvas);
