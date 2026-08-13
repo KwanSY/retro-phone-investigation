@@ -75,6 +75,11 @@ canvas.addEventListener('mousemove', e => {
     }
 });
 
+// Global audio unlock on first user gesture
+['pointerdown', 'keydown', 'click'].forEach(evt => {
+    window.addEventListener(evt, () => initAudio(), { passive: true });
+});
+
 canvas.addEventListener('mousedown', e => {
     initAudio(); // Unlock audio context on user interaction
     for (let i = state.clickRegions.length - 1; i >= 0; i--) {

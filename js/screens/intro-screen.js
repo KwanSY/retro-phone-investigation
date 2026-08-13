@@ -1,6 +1,6 @@
 // js/screens/intro-screen.js - Intro call sequence before start screen
 import { state } from '../state.js';
-import { playPhoneRingSound, playPhonePickupSound, playPhoneHangupSound } from '../ui/audio-manager.js';
+import { playPhoneRingSound, playPhonePickupSound, playPhoneHangupSound, isAudioRunning } from '../ui/audio-manager.js';
 
 // --- Dialogue lines ---
 const LINES = [
@@ -48,12 +48,13 @@ function resetIntro() {
     intro = {
         phase: PHASE.WAIT_CLICK,
         phaseStart: 0,
+        phaseStartSet: false,
+        ringStarted: false,
         lineIdx: 0,
         charIdx: 0,
         lineStart: 0,
         ringDuration: RING_DURATION_MS,
         fadePct: 0,
-        started: false,
     };
 }
 
@@ -65,12 +66,6 @@ function skipIntro() {
     state.introPlayed = true;
     state.screen = 'POLICE_REPORT';
     intro = null;
-}
-
-function startSequence() {
-    intro.phase = PHASE.BLACK_WAIT;
-    intro.phaseStart = performance.now();
-    intro.started = true;
 }
 
 export function drawIntroScreen(ctx, canvas) {
@@ -85,25 +80,38 @@ export function drawIntroScreen(ctx, canvas) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, w, h);
 
-    // --- WAIT_CLICK phase: show prompt, wait for user click to unlock audio ---
+    // --- WAIT_CLICK phase: Show "- 点击开始 -" prompt ---
     if (intro.phase === PHASE.WAIT_CLICK) {
-        ctx.textAlign = 'center';
-        ctx.font = '20px "Courier New", monospace';
-        ctx.fillStyle = '#666';
-        ctx.fillText('点击开始', w / 2, h / 2);
-        ctx.textAlign = 'left';
+        let pulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(now * Math.PI * 2 / 1800));
 
-        // Full-canvas click region to start
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '22px "Courier New", "Microsoft YaHei", monospace';
+        ctx.fillStyle = `rgba(200, 200, 200, ${pulse})`;
+        ctx.fillText('- 点击开始 -', w / 2, h / 2);
+        ctx.restore();
+
+        // Full canvas click region to start
         state.addRegion(0, 0, w, h, () => {
-            startSequence();
+            intro.phase = PHASE.BLACK_WAIT;
+            intro.phaseStart = performance.now();
         });
         return;
     }
 
-    // --- Skip region (active during all phases after click) ---
-    state.addRegion(0, 0, w, h, () => {
-        skipIntro();
-    });
+    if (!intro.phaseStartSet) {
+        intro.phaseStart = now;
+        intro.phaseStartSet = true;
+    }
+
+    // If audio is waiting for browser interaction, hold timers so sequence doesn't expire silently
+    if (intro.phase === PHASE.BLACK_WAIT || intro.phase === PHASE.RINGING) {
+        if (!isAudioRunning()) {
+            intro.phaseStart = now;
+            intro.ringStarted = false;
+        }
+    }
 
     let elapsed = now - intro.phaseStart;
 
@@ -112,13 +120,19 @@ export function drawIntroScreen(ctx, canvas) {
         if (elapsed >= BLACK_WAIT_MS) {
             intro.phase = PHASE.RINGING;
             intro.phaseStart = now;
-            intro.ringDuration = playPhoneRingSound() || RING_DURATION_MS;
+            intro.ringStarted = false;
         }
         return;
     }
 
     if (intro.phase === PHASE.RINGING) {
-        if (elapsed >= intro.ringDuration) {
+        if (!intro.ringStarted && isAudioRunning()) {
+            intro.ringDuration = playPhoneRingSound() || RING_DURATION_MS;
+            intro.ringStarted = true;
+            intro.phaseStart = now;
+        }
+
+        if (intro.ringStarted && elapsed >= intro.ringDuration) {
             intro.phase = PHASE.PICKUP;
             intro.phaseStart = now;
             playPhonePickupSound();

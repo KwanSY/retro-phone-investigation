@@ -1,7 +1,7 @@
 // js/screens/police-report-screen.js - Windows XP Style Police Report Form
 import { state } from '../state.js';
 import { playSubmitSound, playCrtBootSound, playButtonClickSound } from '../ui/audio-manager.js';
-import { drawXPDesktop, drawXPWindow, drawXPButton, drawXPInputBox, drawXPSelectBox, drawXPMsgBox } from '../ui/xp-theme.js';
+import { drawXPDesktop, drawXPWindow, drawXPButton, drawXPInputBox, drawXPSelectBox, drawXPMsgBox, drawCRTMonitorFrame } from '../ui/xp-theme.js';
 
 const CATEGORIES = ['咨询类', '误拨', '无法核实', '其他'];
 const RESULT_SUGGESTIONS = ['无实质警情', '情节轻微', '已记录备查'];
@@ -106,15 +106,31 @@ export function drawPoliceReportScreen(ctx, canvas) {
         bootState.soundPlayed = true;
     }
 
+    // 1. Dark Room Background
+    ctx.fillStyle = '#080a0f';
+    ctx.fillRect(0, 0, w, h);
+
+    // 4:3 CRT Screen Glass dimensions
+    let sh = 680;
+    let sw = Math.round(sh * (4 / 3)); // 907
+    let sx = Math.round((w - sw) / 2); // 146
+    let sy = Math.round((h - sh) / 2 - 8); // 32
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, sy, sw, sh);
+    ctx.clip();
+    ctx.translate(sx, sy);
+
     // 2. Draw Windows XP Desktop Background
-    drawXPDesktop(ctx, w, h);
+    drawXPDesktop(ctx, sw, sh);
 
     let isInteractive = !submitState.phase && !bootState.active;
 
     // 3. Draw Windows XP Dialog Window
     let winW = 700, winH = 570;
-    let winX = (w - winW) / 2;
-    let winY = (h - winH) / 2 - 10;
+    let winX = Math.round((sw - winW) / 2);
+    let winY = Math.round((sh - winH) / 2 - 10);
 
     let body = drawXPWindow(ctx, winX, winY, winW, winH, '接 警 记 录 单  - [ 110-20100609-0047 ]', '📝');
     let bx = body.x, by = body.y, bw = body.w;
@@ -164,7 +180,7 @@ export function drawPoliceReportScreen(ctx, canvas) {
     drawLabel('事发地址：', rowY);
     drawXPInputBox(ctx, valueX, rowY - 2, fieldW, 26, '', false, true);
     if (isInteractive) {
-        state.addRegion(valueX, rowY - 2, fieldW, 26, () => {
+        state.addRegion(sx + valueX, sy + rowY - 2, fieldW, 26, () => {
             blurField();
             reportState.showCategoryDropdown = false;
             reportState.showResultDropdown = false;
@@ -178,7 +194,7 @@ export function drawPoliceReportScreen(ctx, canvas) {
     let contentFocused = reportState.activeField === 'content';
     drawXPInputBox(ctx, valueX, rowY - 2, fieldW, contentH, reportState.contentText, contentFocused, Boolean(submitState.phase), true, reportState.cursorBlink);
     if (isInteractive) {
-        state.addRegion(valueX, rowY - 2, fieldW, contentH, () => {
+        state.addRegion(sx + valueX, sy + rowY - 2, fieldW, contentH, () => {
             focusField('content');
             reportState.showCategoryDropdown = false;
             reportState.showResultDropdown = false;
@@ -192,7 +208,7 @@ export function drawPoliceReportScreen(ctx, canvas) {
     let catDisplay = reportState.categoryIdx >= 0 ? CATEGORIES[reportState.categoryIdx] : '—— 请选择警情分类 ——';
     drawXPSelectBox(ctx, valueX, rowY - 2, fieldW, selectH, catDisplay, reportState.showCategoryDropdown);
     if (isInteractive) {
-        state.addRegion(valueX, rowY - 2, fieldW, selectH, () => {
+        state.addRegion(sx + valueX, sy + rowY - 2, fieldW, selectH, () => {
             reportState.showCategoryDropdown = !reportState.showCategoryDropdown;
             reportState.showResultDropdown = false;
             blurField();
@@ -212,7 +228,7 @@ export function drawPoliceReportScreen(ctx, canvas) {
     drawXPButton(ctx, btnX, rowY - 2, comboBtnW, comboH, '▼', false, isInteractive, false);
 
     if (isInteractive) {
-        state.addRegion(valueX, rowY - 2, fieldW, comboH, () => {
+        state.addRegion(sx + valueX, sy + rowY - 2, fieldW, comboH, () => {
             reportState.showResultDropdown = !reportState.showResultDropdown;
             reportState.showCategoryDropdown = false;
             focusField('result');
@@ -222,13 +238,13 @@ export function drawPoliceReportScreen(ctx, canvas) {
     // Buttons at bottom right
     let btnY = by + 450;
     let submitEnabled = reportState.categoryIdx >= 0 && isInteractive;
-    let submitHover = state.mouseX >= bx + bw / 2 - 120 && state.mouseX <= bx + bw / 2 - 20 &&
-                      state.mouseY >= btnY && state.mouseY <= btnY + 32;
+    let submitHover = state.mouseX >= sx + bx + bw / 2 - 120 && state.mouseX <= sx + bx + bw / 2 - 20 &&
+                      state.mouseY >= sy + btnY && state.mouseY <= sy + btnY + 32;
 
     drawXPButton(ctx, bx + bw / 2 - 120, btnY, 100, 32, '提  交', true, submitEnabled, submitHover);
 
     if (submitEnabled) {
-        state.addRegion(bx + bw / 2 - 120, btnY, 100, 32, () => {
+        state.addRegion(sx + bx + bw / 2 - 120, sy + btnY, 100, 32, () => {
             playSubmitSound();
             state.reportCategory = CATEGORIES[reportState.categoryIdx];
             state.reportResult = reportState.resultText || '无实质警情';
@@ -240,12 +256,12 @@ export function drawPoliceReportScreen(ctx, canvas) {
         });
     }
 
-    let resetHover = state.mouseX >= bx + bw / 2 + 20 && state.mouseX <= bx + bw / 2 + 120 &&
-                     state.mouseY >= btnY && state.mouseY <= btnY + 32;
+    let resetHover = state.mouseX >= sx + bx + bw / 2 + 20 && state.mouseX <= sx + bx + bw / 2 + 120 &&
+                     state.mouseY >= sy + btnY && state.mouseY <= sy + btnY + 32;
 
     drawXPButton(ctx, bx + bw / 2 + 20, btnY, 100, 32, '重  置', false, isInteractive, resetHover);
     if (isInteractive) {
-        state.addRegion(bx + bw / 2 + 20, btnY, 100, 32, () => {
+        state.addRegion(sx + bx + bw / 2 + 20, sy + btnY, 100, 32, () => {
             resetForm();
         });
     }
@@ -256,26 +272,26 @@ export function drawPoliceReportScreen(ctx, canvas) {
         let ddItemH = 26;
 
         ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#316ac5';
+        ctx.strokeStyle = '#808080';
         ctx.lineWidth = 1;
         ctx.fillRect(valueX, ddY, fieldW, ddItemH * CATEGORIES.length + 2);
         ctx.strokeRect(valueX, ddY, fieldW, ddItemH * CATEGORIES.length + 2);
 
         for (let i = 0; i < CATEGORIES.length; i++) {
             let iy = ddY + 1 + i * ddItemH;
-            let isHover = state.mouseX >= valueX && state.mouseX <= valueX + fieldW &&
-                          state.mouseY >= iy && state.mouseY <= iy + ddItemH;
+            let isHover = state.mouseX >= sx + valueX && state.mouseX <= sx + valueX + fieldW &&
+                          state.mouseY >= sy + iy && state.mouseY <= sy + iy + ddItemH;
 
             if (isHover) {
-                ctx.fillStyle = '#316ac5';
+                ctx.fillStyle = '#000080';
                 ctx.fillRect(valueX + 1, iy, fieldW - 2, ddItemH);
             }
 
-            ctx.font = '13px "Tahoma", "Microsoft YaHei", sans-serif';
+            ctx.font = '12px "Tahoma", "Microsoft YaHei", sans-serif';
             ctx.fillStyle = isHover ? '#ffffff' : '#000000';
             ctx.fillText(CATEGORIES[i], valueX + 8, iy + 17);
 
-            state.addRegion(valueX, iy, fieldW, ddItemH, () => {
+            state.addRegion(sx + valueX, sy + iy, fieldW, ddItemH, () => {
                 reportState.categoryIdx = i;
                 reportState.showCategoryDropdown = false;
                 if (i === 0) {
@@ -291,26 +307,26 @@ export function drawPoliceReportScreen(ctx, canvas) {
         let ddItemH = 26;
 
         ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#316ac5';
+        ctx.strokeStyle = '#808080';
         ctx.lineWidth = 1;
         ctx.fillRect(valueX, ddY, fieldW, ddItemH * RESULT_SUGGESTIONS.length + 2);
         ctx.strokeRect(valueX, ddY, fieldW, ddItemH * RESULT_SUGGESTIONS.length + 2);
 
         for (let i = 0; i < RESULT_SUGGESTIONS.length; i++) {
             let iy = ddY + 1 + i * ddItemH;
-            let isHover = state.mouseX >= valueX && state.mouseX <= valueX + fieldW &&
-                          state.mouseY >= iy && state.mouseY <= iy + ddItemH;
+            let isHover = state.mouseX >= sx + valueX && state.mouseX <= sx + valueX + fieldW &&
+                          state.mouseY >= sy + iy && state.mouseY <= sy + iy + ddItemH;
 
             if (isHover) {
-                ctx.fillStyle = '#316ac5';
+                ctx.fillStyle = '#000080';
                 ctx.fillRect(valueX + 1, iy, fieldW - 2, ddItemH);
             }
 
-            ctx.font = '13px "Tahoma", "Microsoft YaHei", sans-serif';
+            ctx.font = '12px "Tahoma", "Microsoft YaHei", sans-serif';
             ctx.fillStyle = isHover ? '#ffffff' : '#000000';
             ctx.fillText(RESULT_SUGGESTIONS[i], valueX + 8, iy + 17);
 
-            state.addRegion(valueX, iy, fieldW, ddItemH, () => {
+            state.addRegion(sx + valueX, sy + iy, fieldW, ddItemH, () => {
                 reportState.resultText = RESULT_SUGGESTIONS[i];
                 reportState.showResultDropdown = false;
                 getHiddenInput().value = RESULT_SUGGESTIONS[i];
@@ -321,8 +337,8 @@ export function drawPoliceReportScreen(ctx, canvas) {
     // --- Windows XP Classic "已提交" Popup MsgBox (WAITS FOR USER CLICK ON "确定") ---
     if (submitState.phase === 'POPUP') {
         let popW = 340, popH = 145;
-        let popX = (w - popW) / 2;
-        let popY = (h - popH) / 2;
+        let popX = Math.round((sw - popW) / 2);
+        let popY = Math.round((sh - popH) / 2);
 
         drawXPMsgBox(ctx, popX, popY, popW, popH, '提示', '接警记录单已成功提交并归档。');
 
@@ -333,7 +349,7 @@ export function drawPoliceReportScreen(ctx, canvas) {
         let confirmBtnY = popBodyY + popBodyH - 38;
 
         // Click handler on '确定' button
-        state.addRegion(confirmBtnX, confirmBtnY, btnW, btnH, () => {
+        state.addRegion(sx + confirmBtnX, sy + confirmBtnY, btnW, btnH, () => {
             playButtonClickSound();
             submitState.phase = null;
             bootState.active = true; // prepare for next transition
@@ -342,7 +358,7 @@ export function drawPoliceReportScreen(ctx, canvas) {
         });
 
         // Click handler on Titlebar Close '✕' button
-        state.addRegion(popX + popW - 26, popY + 5, 21, 21, () => {
+        state.addRegion(sx + popX + popW - 26, sy + popY + 5, 21, 21, () => {
             playButtonClickSound();
             submitState.phase = null;
             bootState.active = true;
@@ -362,30 +378,30 @@ export function drawPoliceReportScreen(ctx, canvas) {
             if (bootElapsed < 350) {
                 // Phase 1: Pitch black, expanding HORIZONTALLY from center point
                 ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, w, h);
+                ctx.fillRect(0, 0, sw, sh);
 
                 let progress = bootElapsed / 350;
-                let lineW = w * progress;
-                let startX = (w - lineW) / 2;
+                let lineW = sw * progress;
+                let startX = (sw - lineW) / 2;
 
                 ctx.strokeStyle = '#ffffff';
                 ctx.shadowColor = '#66aacc';
                 ctx.shadowBlur = 18;
                 ctx.lineWidth = 3;
                 ctx.beginPath();
-                ctx.moveTo(startX, h / 2);
-                ctx.lineTo(startX + lineW, h / 2);
+                ctx.moveTo(startX, sh / 2);
+                ctx.lineTo(startX + lineW, sh / 2);
                 ctx.stroke();
             } else {
                 // Phase 2: Full width horizontal line expanding VERTICALLY outwards
                 let progress = (bootElapsed - 350) / 650;
-                let openH = (h / 2) * progress;
+                let openH = (sh / 2) * progress;
 
                 // Top black curtain
                 ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, w, h / 2 - openH);
+                ctx.fillRect(0, 0, sw, sh / 2 - openH);
                 // Bottom black curtain
-                ctx.fillRect(0, h / 2 + openH, w, h / 2 - openH);
+                ctx.fillRect(0, sh / 2 + openH, sw, sh / 2 - openH);
 
                 // Upper & Lower glowing phosphor border lines
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
@@ -394,15 +410,20 @@ export function drawPoliceReportScreen(ctx, canvas) {
                 ctx.lineWidth = 2.5;
 
                 ctx.beginPath();
-                ctx.moveTo(0, h / 2 - openH);
-                ctx.lineTo(w, h / 2 - openH);
-                ctx.moveTo(0, h / 2 + openH);
-                ctx.lineTo(w, h / 2 + openH);
+                ctx.moveTo(0, sh / 2 - openH);
+                ctx.lineTo(sw, sh / 2 - openH);
+                ctx.moveTo(0, sh / 2 + openH);
+                ctx.lineTo(sw, sh / 2 + openH);
                 ctx.stroke();
             }
             ctx.restore();
         }
     }
+
+    ctx.restore(); // End screen clipping & translation
+
+    // 3. Render Beige CRT Monitor Casing OVER the screen
+    drawCRTMonitorFrame(ctx, sx, sy, sw, sh);
 
     // Non-interactive desktop background click-away
     if (isInteractive) {

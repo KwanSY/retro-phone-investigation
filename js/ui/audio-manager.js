@@ -20,6 +20,10 @@ export function initAudio() {
     getAudioContext();
 }
 
+export function isAudioRunning() {
+    return audioCtx && audioCtx.state === 'running';
+}
+
 /**
  * Message Notification Sound (High-tech retro dual-tone chime)
  * Triggered when a new message from Ferryman arrives

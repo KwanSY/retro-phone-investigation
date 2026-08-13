@@ -2,7 +2,7 @@
 import { state } from '../state.js';
 import { wrapText } from '../ui/canvas-utils.js';
 import { playNotificationAlertSound, playButtonClickSound, playNotificationSound, playCrtBootSound } from '../ui/audio-manager.js';
-import { drawXPDesktop, drawXPWindow, drawXPButton } from '../ui/xp-theme.js';
+import { drawXPDesktop, drawXPWindow, drawXPButton, drawCRTMonitorFrame } from '../ui/xp-theme.js';
 
 // --- Phase constants ---
 const PHASE = {
@@ -87,7 +87,7 @@ function drawClockPhase(ctx, w, h, now, elapsed) {
     let totalClockDuration = totalTickTime + WHITE_DAYBREAK_DURATION; // 5s + 2s white screen = 7s total
 
     if (elapsed < totalTickTime) {
-        // --- Standby Pitch Black Screen with Digital Clock ---
+        // --- Standby Pitch Black Screen with Amber Digital Clock ---
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, w, h);
 
@@ -104,9 +104,9 @@ function drawClockPhase(ctx, w, h, now, elapsed) {
         ctx.textBaseline = 'middle';
         ctx.font = '48px "Courier New", monospace';
 
-        ctx.shadowColor = '#66aacc';
+        ctx.shadowColor = '#ffbf00';
         ctx.shadowBlur = 20;
-        ctx.fillStyle = '#66aacc';
+        ctx.fillStyle = '#ffbf00';
         ctx.fillText(displayStr, w / 2, h / 2);
 
         ctx.shadowBlur = 8;
@@ -155,13 +155,28 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
         clockState.notifCrtBooted = true;
     }
 
-    // 1. Draw XP Desktop Wallpaper + Taskbar
-    drawXPDesktop(ctx, w, h);
+    let sh = 680;
+    let sw = Math.round(sh * (4 / 3)); // 907
+    let sx = Math.round((w - sw) / 2); // 146
+    let sy = Math.round((h - sh) / 2 - 8); // 32
 
-    // 2. Draw Windows XP Case Notification Dialog Window
+    // Dark Room Background
+    ctx.fillStyle = '#080a0f';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, sy, sw, sh);
+    ctx.clip();
+    ctx.translate(sx, sy);
+
+    // 1. Draw XP Desktop Wallpaper
+    drawXPDesktop(ctx, sw, sh);
+
+    // 2. Draw Windows Case Notification Dialog Window
     let winW = 620, winH = 480;
-    let winX = (w - winW) / 2;
-    let winY = (h - winH) / 2 - 10;
+    let winX = Math.round((sw - winW) / 2);
+    let winY = Math.round((sh - winH) / 2 - 10);
 
     let body = drawXPWindow(ctx, winX, winY, winW, winH, '系统通知 - [ 案件通报 ]', '📢');
     let bx = body.x, by = body.y, bw = body.w;
@@ -192,9 +207,9 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
     ctx.fillStyle = '#555555';
     ctx.fillText(NOTIF_FOOTER, bx + bw - padding, footerY);
 
-    // --- 关联警情 & 定性 (System Log fade-in at 3s / 3000ms) ---
-    if (elapsed >= 3000) {
-        let metaAlpha = Math.min(1, (elapsed - 3000) / 400);
+    // --- 关联警情 & 定性 (System Log fade-in at 1.5s / 1500ms) ---
+    if (elapsed >= 1500) {
+        let metaAlpha = Math.min(1, (elapsed - 1500) / 400);
 
         ctx.save();
         ctx.globalAlpha = metaAlpha;
@@ -222,20 +237,20 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
         ctx.restore();
     }
 
-    // --- 【出 现 场】 XP Button (displays after 4s / 4000ms, 1s after log fades in) ---
-    if (elapsed >= 4000) {
+    // --- 【出 现 场】 Button (displays after 2.5s / 2500ms) ---
+    if (elapsed >= 2500) {
         let btnW = 120;
         let btnH = 32;
         let btnX = bx + bw / 2 - btnW / 2;
         let btnY = by + body.h - 45;
 
-        let isHover = state.mouseX >= btnX && state.mouseX <= btnX + btnW &&
-                      state.mouseY >= btnY && state.mouseY <= btnY + btnH;
+        let isHover = state.mouseX >= sx + btnX && state.mouseX <= sx + btnX + btnW &&
+                      state.mouseY >= sy + btnY && state.mouseY <= sy + btnY + btnH;
 
         drawXPButton(ctx, btnX, btnY, btnW, btnH, '出 现 场', true, true, isHover);
 
         // Click handler to trigger Shutdown Cutscene
-        state.addRegion(btnX, btnY, btnW, btnH, () => {
+        state.addRegion(sx + btnX, sy + btnY, btnW, btnH, () => {
             playButtonClickSound();
             clockState.phase = PHASE.SHUTDOWN_CUTSCENE;
             clockState.cutsceneStart = performance.now();
@@ -243,34 +258,32 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
         });
     }
 
-    // --- CRT Opening Expansion Overlay (Center Point -> Horizontal -> Vertical) ---
+    // --- CRT Opening Expansion Overlay ---
     if (elapsed < 1000) {
         ctx.save();
         if (elapsed < 350) {
-            // Pitch black with horizontal expanding center line
             ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, w, h);
+            ctx.fillRect(0, 0, sw, sh);
 
             let progress = elapsed / 350;
-            let lineW = w * progress;
-            let startX = (w - lineW) / 2;
+            let lineW = sw * progress;
+            let startX = (sw - lineW) / 2;
 
             ctx.strokeStyle = '#ffffff';
             ctx.shadowColor = '#66aacc';
             ctx.shadowBlur = 18;
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(startX, h / 2);
-            ctx.lineTo(startX + lineW, h / 2);
+            ctx.moveTo(startX, sh / 2);
+            ctx.lineTo(startX + lineW, sh / 2);
             ctx.stroke();
         } else {
-            // Vertical opening curtain
             let progress = (elapsed - 350) / 650;
-            let openH = (h / 2) * progress;
+            let openH = (sh / 2) * progress;
 
             ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, w, h / 2 - openH);
-            ctx.fillRect(0, h / 2 + openH, w, h / 2 - openH);
+            ctx.fillRect(0, 0, sw, sh / 2 - openH);
+            ctx.fillRect(0, sh / 2 + openH, sw, sh / 2 - openH);
 
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.shadowColor = '#66aacc';
@@ -278,14 +291,19 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
             ctx.lineWidth = 2.5;
 
             ctx.beginPath();
-            ctx.moveTo(0, h / 2 - openH);
-            ctx.lineTo(w, h / 2 - openH);
-            ctx.moveTo(0, h / 2 + openH);
-            ctx.lineTo(w, h / 2 + openH);
+            ctx.moveTo(0, sh / 2 - openH);
+            ctx.lineTo(sw, sh / 2 - openH);
+            ctx.moveTo(0, sh / 2 + openH);
+            ctx.lineTo(sw, sh / 2 + openH);
             ctx.stroke();
         }
         ctx.restore();
     }
+
+    ctx.restore(); // End CRT screen clip
+
+    // Render Beige CRT Monitor Housing OVER screen
+    drawCRTMonitorFrame(ctx, sx, sy, sw, sh);
 }
 
 // =====================================================================
@@ -318,11 +336,11 @@ function drawShutdownCutscene(ctx, w, h, now) {
     }
 
     let alpha = 1;
-    if (elapsed >= 5600) {
-        alpha = Math.max(0, 1 - (elapsed - 5600) / 1000);
+    if (elapsed >= 3600) {
+        alpha = Math.max(0, 1 - (elapsed - 3600) / 1000);
     }
 
-    if (elapsed >= 6600) {
+    if (elapsed >= 4600) {
         clockState = null;
         state.screen = 'START_SCREEN';
         return;
