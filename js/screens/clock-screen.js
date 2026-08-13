@@ -207,9 +207,9 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
     ctx.fillStyle = '#555555';
     ctx.fillText(NOTIF_FOOTER, bx + bw - padding, footerY);
 
-    // --- 关联警情 & 定性 (System Log fade-in at 1.5s / 1500ms) ---
-    if (elapsed >= 1500) {
-        let metaAlpha = Math.min(1, (elapsed - 1500) / 400);
+    // --- 关联警情 & 定性 (Fades in 2s AFTER window fully opens, i.e., 1000ms boot + 2000ms = 3000ms) ---
+    if (elapsed >= 3000) {
+        let metaAlpha = Math.min(1, (elapsed - 3000) / 400);
 
         ctx.save();
         ctx.globalAlpha = metaAlpha;
@@ -237,8 +237,8 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
         ctx.restore();
     }
 
-    // --- 【出 现 场】 Button (displays after 2.5s / 2500ms) ---
-    if (elapsed >= 2500) {
+    // --- 【出 现 场】 Button (displays 1s after metadata fades in, i.e., 4000ms) ---
+    if (elapsed >= 4000) {
         let btnW = 120;
         let btnH = 32;
         let btnX = bx + bw / 2 - btnW / 2;
