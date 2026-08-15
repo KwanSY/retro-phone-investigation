@@ -164,7 +164,6 @@ function drawClockPhase(ctx, w, h, now, elapsed) {
 function drawNotificationPhase(ctx, w, h, now, elapsed) {
     if (!clockState.notifCrtBooted) {
         playCrtBootSound();
-        playNotificationAlertSound();
         clockState.notifCrtBooted = true;
     }
 
@@ -181,7 +180,7 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
     ctx.clip();
     ctx.translate(sx, sy);
 
-    // 2a. Workstation background with yesterday's filled form
+    // 2a. Morning Workstation background (blank form waiting for calls)
     let body = draw110DispatchWindow(ctx, 0, 0, sw, sh, '110接处警系统 V2.3 —— 处警调度工作台 ——', '2010-06-10 08:00:15');
     let bx = body.x, by = body.y, bw = body.w, bh = body.h;
 
@@ -208,15 +207,15 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
         ctx.fillText(text, valueX, y + 10);
     }
 
-    // Previous filled form rows (dimmed)
+    // Morning clean blank form rows
     let r1 = by + 12;
-    drawLabel('单　　号：', r1); drawReadonly('110-20100609-0047', r1);
+    drawLabel('单　　号：', r1); drawReadonly('110-20100610-0001', r1);
     let r2 = by + 38;
-    drawLabel('接警时间：', r2); drawReadonly('2010-06-09 23:52:41', r2); drawLockIcon(ctx, valueX + 145, r2 + 3);
+    drawLabel('接警时间：', r2); drawReadonly('2010-06-10 08:00:15', r2); drawLockIcon(ctx, valueX + 145, r2 + 3);
     let r3 = by + 64;
-    drawLabel('来电号码：', r3); drawReadonly('139XXXX2759', r3); drawLockIcon(ctx, valueX + 95, r3 + 3);
+    drawLabel('来电号码：', r3); drawReadonly('—', r3);
     let r4 = by + 90;
-    drawLabel('报 警 人：', r4); drawReadonly('许念  女    单位/学校：市二中', r4); drawLockIcon(ctx, valueX + 205, r4 + 3);
+    drawLabel('报 警 人：', r4); drawReadonly('—', r4);
 
     // Multiline form content
     let r5 = by + 118;
@@ -225,108 +224,125 @@ function drawNotificationPhase(ctx, w, h, now, elapsed) {
 
     let r6 = by + 148;
     drawLabel('警情内容：', r6);
-    drawXPTextareaWithScrollbar(ctx, valueX, r6 - 2, fieldW, 115, state.reportContent || '', false, true, 0);
+    drawXPTextareaWithScrollbar(ctx, valueX, r6 - 2, fieldW, 115, '', false, true, 0);
 
     // Category & Result
     let r7 = by + 272;
     drawLabel('警情分类：', r7);
-    drawXPSelectBox(ctx, valueX, r7 - 2, 210, 26, `【 ${state.reportCategory || '咨询类'} 】`, false);
+    drawXPSelectBox(ctx, valueX, r7 - 2, 210, 26, '【 请选择警情分类 】', false);
 
     let r8 = by + 308;
     drawLabel('处理结果：', r8);
-    drawXPInputBox(ctx, valueX, r8 - 2, 210 - 18, 26, state.reportResult || '无实质警情', false, true, false, 0);
+    drawXPInputBox(ctx, valueX, r8 - 2, 210 - 18, 26, '', false, true, false, 0);
     drawXPButton(ctx, valueX + 210 - 18, r8 - 2, 18, 26, '▼', false, false, false);
+
+    // Buttons
+    let btnY = by + 352;
+    drawXPButton(ctx, bx + bw / 2 - 105, btnY, 95, 28, '【 提 交 】', false, false, false);
+    drawXPButton(ctx, bx + bw / 2 + 10, btnY, 95, 28, '【 重 置 】', false, false, false);
 
     // Floating Smart ABC Bar on Bottom Right
     drawSmartABCBar(ctx, bx + bw - 215, by + bh - 28);
 
-    // 2b. Modal Backdrop Overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-    ctx.fillRect(0, 0, sw, sh);
+    // --- 2b. Pop up 案件通报 Window after 1.8s ---
+    let popupDelay = 1800;
+    if (elapsed >= popupDelay) {
+        if (!clockState.notifSoundPlayed) {
+            playNotificationAlertSound();
+            clockState.notifSoundPlayed = true;
+        }
 
-    // 2c. Modal Dialog Window: ■ 案件通报
-    let popW = 480, popH = 340;
-    let popX = Math.round((sw - popW) / 2);
-    let popY = Math.round((sh - popH) / 2 - 10);
+        let popElapsed = elapsed - popupDelay;
+        let backdropAlpha = Math.min(0.35, (popElapsed / 250) * 0.35);
 
-    let popBody = drawXPWindow(ctx, popX, popY, popW, popH, '案件通报', '📢');
-    let pbx = popBody.x, pby = popBody.y, pbw = popBody.w;
+        // Modal Backdrop Overlay
+        ctx.fillStyle = `rgba(0, 0, 0, ${backdropAlpha})`;
+        ctx.fillRect(0, 0, sw, sh);
 
-    let padX = 24;
-    let contentX = pbx + padX;
-    let notifY = pby + 16;
-    let contentMaxW = pbw - padX * 2;
+        // Modal Dialog Window: ■ 案件通报
+        let popW = 480, popH = 340;
+        let popX = Math.round((sw - popW) / 2);
+        let popY = Math.round((sh - popH) / 2 - 10);
 
-    // Red Title
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 15px "SimHei", "Microsoft YaHei", sans-serif';
-    ctx.fillStyle = '#cc0000';
-    ctx.fillText(NOTIF_TITLE, pbx + pbw / 2, notifY);
+        let popBody = drawXPWindow(ctx, popX, popY, popW, popH, '案件通报', '📢');
+        let pbx = popBody.x, pby = popBody.y, pbw = popBody.w;
 
-    // Body Text (Songti 13px)
-    let textY = notifY + 22;
-    ctx.textAlign = 'left';
-    ctx.font = '13px "SimSun", "Songti SC", sans-serif';
-    ctx.fillStyle = '#111111';
+        let padX = 24;
+        let contentX = pbx + padX;
+        let notifY = pby + 16;
+        let contentMaxW = pbw - padX * 2;
 
-    let bodyHeight = wrapText(ctx, NOTIF_BODY, contentX, textY, contentMaxW, 19);
+        // Red Title
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 15px "SimHei", "Microsoft YaHei", sans-serif';
+        ctx.fillStyle = '#cc0000';
+        ctx.fillText(NOTIF_TITLE, pbx + pbw / 2, notifY);
 
-    // Footer
-    let footerY = textY + bodyHeight + 8;
-    ctx.textAlign = 'right';
-    ctx.font = '12px "SimSun", sans-serif';
-    ctx.fillStyle = '#444444';
-    ctx.fillText(NOTIF_FOOTER, pbx + pbw - padX, footerY);
-
-    // --- 关联警情 & 定性 (Fades in 2s AFTER window fully opens, i.e., 3000ms) ---
-    if (elapsed >= 3000) {
-        let metaAlpha = Math.min(1, (elapsed - 3000) / 400);
-
-        ctx.save();
-        ctx.globalAlpha = metaAlpha;
-
-        let lineY = footerY + 12;
-        let metaY = lineY + 16;
-
-        // Inset separator line
-        ctx.strokeStyle = '#c0b8a4';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(contentX, lineY);
-        ctx.lineTo(pbx + pbw - padX, lineY);
-        ctx.stroke();
-
+        // Body Text (Songti 13px)
+        let textY = notifY + 22;
         ctx.textAlign = 'left';
-        ctx.font = '12px "SimSun", "Songti SC", sans-serif';
-        ctx.fillStyle = '#7a4e00';
+        ctx.font = '13px "SimSun", "Songti SC", sans-serif';
+        ctx.fillStyle = '#111111';
 
-        ctx.fillText('关联警情：2010年6月9日 23:52 · 110呼入 · 通话47秒', contentX, metaY);
-        let categoryStr = state.reportCategory || '咨询类';
-        let resultStr = state.reportResult || '无实质警情';
-        ctx.fillText(`定性：${categoryStr}，${resultStr}。`, contentX, metaY + 18);
+        let bodyHeight = wrapText(ctx, NOTIF_BODY, contentX, textY, contentMaxW, 19);
 
-        ctx.restore();
-    }
+        // Footer
+        let footerY = textY + bodyHeight + 8;
+        ctx.textAlign = 'right';
+        ctx.font = '12px "SimSun", sans-serif';
+        ctx.fillStyle = '#444444';
+        ctx.fillText(NOTIF_FOOTER, pbx + pbw - padX, footerY);
 
-    // --- 【出 现 场】 Button (displays 1s after metadata fades in, i.e., 4000ms) ---
-    if (elapsed >= 4000) {
-        let btnW = 100;
-        let btnH = 28;
-        let btnX = pbx + pbw / 2 - btnW / 2;
-        let btnY = pby + popBody.h - 38;
+        // --- 关联警情 & 定性 (Fades in 2s AFTER window opens, i.e., popElapsed >= 2000ms) ---
+        if (popElapsed >= 2000) {
+            let metaAlpha = Math.min(1, (popElapsed - 2000) / 400);
 
-        let isHover = state.mouseX >= sx + btnX && state.mouseX <= sx + btnX + btnW &&
-                      state.mouseY >= sy + btnY && state.mouseY <= sy + btnY + btnH;
+            ctx.save();
+            ctx.globalAlpha = metaAlpha;
 
-        drawXPButton(ctx, btnX, btnY, btnW, btnH, '【出现场】', true, true, isHover);
+            let lineY = footerY + 12;
+            let metaY = lineY + 16;
 
-        // Click handler to trigger Stage 8 Title Sequence
-        state.addRegion(sx + btnX, sy + btnY, btnW, btnH, () => {
-            playButtonClickSound();
-            clockState.phase = PHASE.SHUTDOWN_CUTSCENE;
-            clockState.cutsceneStart = performance.now();
-            clockState.playedSmsSound = false;
-        });
+            // Inset separator line
+            ctx.strokeStyle = '#c0b8a4';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(contentX, lineY);
+            ctx.lineTo(pbx + pbw - padX, lineY);
+            ctx.stroke();
+
+            ctx.textAlign = 'left';
+            ctx.font = '12px "SimSun", "Songti SC", sans-serif';
+            ctx.fillStyle = '#7a4e00';
+
+            ctx.fillText('关联警情：2010年6月9日 23:52 · 110呼入 · 通话47秒', contentX, metaY);
+            let categoryStr = state.reportCategory || '咨询类';
+            let resultStr = state.reportResult || '无实质警情';
+            ctx.fillText(`定性：${categoryStr}，${resultStr}。`, contentX, metaY + 18);
+
+            ctx.restore();
+        }
+
+        // --- 【出 现 场】 Button (displays 1s after metadata fades in, i.e., popElapsed >= 3000ms) ---
+        if (popElapsed >= 3000) {
+            let btnW = 100;
+            let btnH = 28;
+            let btnX = pbx + pbw / 2 - btnW / 2;
+            let btnY = pby + popBody.h - 38;
+
+            let isHover = state.mouseX >= sx + btnX && state.mouseX <= sx + btnX + btnW &&
+                          state.mouseY >= sy + btnY && state.mouseY <= sy + btnY + btnH;
+
+            drawXPButton(ctx, btnX, btnY, btnW, btnH, '【出现场】', true, true, isHover);
+
+            // Click handler to trigger Stage 8 Title Sequence
+            state.addRegion(sx + btnX, sy + btnY, btnW, btnH, () => {
+                playButtonClickSound();
+                clockState.phase = PHASE.SHUTDOWN_CUTSCENE;
+                clockState.cutsceneStart = performance.now();
+                clockState.playedSmsSound = false;
+            });
+        }
     }
 
     // CRT opening expansion overlay
